@@ -1,0 +1,2558 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediTrack AI - Personal Health Copilot</title>
+  <meta name="description"
+    content="Personal AI copilot for medical reports, symptom triage, medication adherence, and ABDM FHIR Health Vault.">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            clinical: {
+              950: '#050b14',
+              900: '#0b1324',
+              850: '#111e38',
+              800: '#172744',
+              700: '#2b3f63'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons & Chart.js -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Marked.js, DOMPurify, jsPDF -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- Custom Design System Stylesheet & Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="bg-clinical-950 text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
+
+  <!-- ========================================================= -->
+  <!-- EMERGENCY TRIAGE ALERT BANNER (#emergency-banner)         -->
+  <!-- ========================================================= -->
+  <aside id="emergency-banner"
+    class="hidden z-50 px-4 py-2.5 emergency-banner-active text-white flex flex-wrap items-center justify-between gap-3 shadow-xl"
+    role="alert" aria-live="assertive">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="alert-triangle" class="w-5 h-5 text-yellow-300"></i>
+      </div>
+      <div>
+        <div class="text-xs sm:text-sm font-extrabold tracking-wide uppercase flex items-center gap-2">
+          <span>CRITICAL CLINICAL ALERT</span>
+          <span class="px-2 py-0.5 rounded-full bg-white/25 text-[10px] font-mono">RED FLAG TRIAGE</span>
+        </div>
+        <div id="emergency-banner-text" class="text-xs text-rose-100 font-medium">
+          Reported symptoms (e.g. acute chest pressure radiating to left arm) indicate possible cardiac emergency.
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="tel:108"
+        class="px-3.5 py-1.5 rounded-xl bg-white text-rose-700 hover:bg-rose-50 text-xs font-bold transition flex items-center gap-1.5 shadow-md">
+        <i data-lucide="phone-call" class="w-3.5 h-3.5"></i>
+        <span>Call 108 (Ambulance)</span>
+      </a>
+      <a href="tel:112"
+        class="px-3 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 text-white text-xs font-semibold transition border border-rose-300/40">
+        <span>Call 112</span>
+      </a>
+      <button onclick="App.dismissEmergencyBanner()"
+        class="p-1 rounded-lg text-rose-200 hover:text-white hover:bg-white/10 transition cursor-pointer"
+        aria-label="Dismiss Emergency Alert">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ========================================================= -->
+  <!-- TOP GLOBAL HEADER                                         -->
+  <!-- ========================================================= -->
+  <header id="main-header"
+    class="sticky top-0 z-40 bg-clinical-900/90 backdrop-blur-md border-b border-slate-800 px-3 sm:px-6 py-2.5 flex items-center justify-between flex-shrink-0">
+    <div class="flex items-center gap-2 sm:gap-3">
+      <!-- Mobile Sidebar Drawer Toggle Button (Only on Mobile <768px when logged in) -->
+      <button id="btn-mobile-menu-toggle" onclick="App.toggleMobileMenu()"
+        class="hidden p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+        aria-label="Toggle navigation drawer">
+        <i data-lucide="menu" class="w-5 h-5"></i>
+      </button>
+
+      <!-- Brand Logo & ABDM Compliance Badge -->
+      <div onclick="App.handleLogoClick()" class="flex items-center gap-2 sm:gap-2.5 cursor-pointer group" role="button"
+        tabindex="0" aria-label="Go to MediTrack Home">
+        <div
+          class="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-teal-500/20 group-hover:scale-105 transition">
+          <i data-lucide="shield-plus" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <span
+            class="font-heading font-extrabold text-sm sm:text-base tracking-tight text-white group-hover:text-teal-300 transition">MediTrack
+            AI</span>
+          <span class="text-[10px] text-teal-400 block -mt-1 font-mono">Personal Health Copilot</span>
+        </div>
+      </div>
+      <span
+        class="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold status-chip status-chip-green">
+        <span class="dot-glow radar-dot"></span>
+        <span>● ABHA Active</span>
+      </span>
+    </div>
+
+    <!-- Center Section: Breadcrumbs & Global Search (Revealed when logged in) -->
+    <div id="header-center-area" class="hidden md:flex items-center gap-4 flex-1 max-w-xl mx-4">
+      <!-- Breadcrumb indicator -->
+      <nav id="header-breadcrumbs" class="hidden lg:flex items-center gap-1 text-xs text-slate-400 font-medium"
+        aria-label="Breadcrumb">
+        <span class="text-slate-500">MediTrack</span>
+        <i data-lucide="chevron-right" class="w-3 h-3 text-slate-600"></i>
+        <span id="breadcrumb-current-view" class="text-teal-400 font-semibold">Home Workspace</span>
+      </nav>
+
+      <!-- Global Search Container -->
+      <div id="header-search-container" class="relative flex-1">
+        <div class="relative flex items-center">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none"></i>
+          <input id="header-global-search" type="search" placeholder="Search records, medicines, test names... (Ctrl+K)"
+            onfocus="App.openSearchDropdown()" oninput="App.handleGlobalSearch(this.value)"
+            class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-9 pr-14 py-1.5 text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:border-teal-500 transition"
+            aria-label="Global search">
+          <kbd class="absolute right-2.5 hidden sm:inline-block pointer-events-none text-[10px]">Ctrl+K</kbd>
+        </div>
+
+        <!-- Real-time Search Results Dropdown -->
+        <div id="global-search-results-dropdown"
+          class="hidden absolute top-full left-0 right-0 mt-1.5 glass-dropdown rounded-2xl p-2 z-50 max-h-72 overflow-y-auto space-y-1">
+          <!-- Populated dynamically by App.handleGlobalSearch() -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Header Controls: Theme, Language, Notifications, Auth Button -->
+    <div class="flex items-center gap-2 sm:gap-3">
+      <!-- Guided Demo Launcher Button -->
+      <button id="btn-header-guided-demo" onclick="App.runGuidedDemo()"
+        class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-teal-500/15 to-cyan-500/15 hover:from-teal-500/25 hover:to-cyan-500/25 text-teal-300 border border-teal-500/40 text-[11px] font-bold transition cursor-pointer"
+        title="Run End-to-End Guided Demo">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-teal-400"></i>
+        <span>Guided Demo</span>
+      </button>
+
+      <!-- Language Switcher (EN | తెలుగు | हिंदी) -->
+      <div class="flex items-center bg-slate-800/80 p-0.5 rounded-xl border border-slate-700/80 text-xs font-semibold"
+        role="group" aria-label="Language selection">
+        <button id="lang-btn-en" onclick="App.setLanguage('en')"
+          class="px-2 py-1 rounded-lg transition text-teal-300 bg-teal-950/80 border border-teal-500/40 text-[11px]"
+          aria-label="English">EN</button>
+        <button id="lang-btn-te" onclick="App.setLanguage('te')"
+          class="px-2 py-1 rounded-lg transition text-slate-400 hover:text-slate-200 text-[11px]"
+          aria-label="Telugu">తెలుగు</button>
+        <button id="lang-btn-hi" onclick="App.setLanguage('hi')"
+          class="px-2 py-1 rounded-lg transition text-slate-400 hover:text-slate-200 text-[11px]"
+          aria-label="Hindi">हिंदी</button>
+      </div>
+
+      <!-- Dark / Light Theme Toggle -->
+      <button id="btn-theme-toggle" onclick="App.toggleTheme()"
+        class="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800/80 border border-slate-700/60 transition cursor-pointer"
+        aria-label="Toggle light or dark theme" title="Toggle theme">
+        <i data-lucide="moon" id="theme-toggle-icon" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Notification Bell (Logged-in Only) -->
+      <div id="header-notification-container" class="relative hidden">
+        <button id="header-notification-bell" onclick="App.toggleNotificationDropdown()"
+          class="p-2 rounded-xl text-slate-300 hover:text-teal-300 hover:bg-slate-800/80 border border-slate-700/60 transition cursor-pointer relative"
+          aria-label="View notifications" title="Notifications">
+          <i data-lucide="bell" class="w-4 h-4"></i>
+          <span id="notification-unread-badge"
+            class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[10px] font-bold text-white flex items-center justify-center">2</span>
+        </button>
+
+        <!-- Notification Panel Dropdown -->
+        <div id="notification-dropdown"
+          class="hidden absolute right-0 top-full mt-2 w-80 glass-dropdown rounded-2xl p-3 z-50 space-y-2 animate-slide-down">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-700/80">
+            <span class="text-xs font-bold text-white">Notifications & Alerts</span>
+            <button onclick="App.clearAllNotifications()"
+              class="text-[10px] text-teal-400 hover:text-teal-300 font-semibold cursor-pointer">Mark all read</button>
+          </div>
+          <div id="notification-list-items" class="space-y-2 max-h-64 overflow-y-auto">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Engine Status Badge -->
+      <div id="header-ai-status-badge"
+        class="hidden xl:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="header-ai-status-text">● Gemini Live Engine Active</span>
+      </div>
+
+      <!-- Dynamic Auth Buttons Area -->
+      <div id="header-auth-container" class="flex items-center gap-2">
+        <button id="btn-nav-auth" onclick="App.gotoState(2)"
+          class="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-500/20 transition cursor-pointer flex items-center gap-1.5">
+          <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+          <span>Login / Register</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================= -->
+  <!-- MAIN WORKSPACE & NAVIGATION SHELL                         -->
+  <!-- ========================================================= -->
+  <div id="app-workspace-wrapper" class="flex flex-1 overflow-hidden relative">
+
+    <!-- ======================================================= -->
+    <!-- STATE 1: GUEST / BEFORE LOGIN VIEW (#view-before-login) -->
+    <!-- (Strictly NO sidebar visible in guest mode)             -->
+    <!-- ======================================================= -->
+    <main id="view-before-login"
+      class="content-view w-full overflow-y-auto h-[calc(100vh-61px)] p-4 sm:p-8 max-w-4xl mx-auto space-y-8 py-6 sm:py-10">
+      <!-- Centered Minimal Hero -->
+      <div class="text-center max-w-2xl mx-auto space-y-3">
+        <div
+          class="inline-flex items-center gap-2 px-3 py-1 rounded-full status-chip status-chip-green text-xs font-semibold shadow-sm">
+          <span class="dot-glow radar-dot"></span>
+          <span>● ABHA Active</span>
+        </div>
+        <h1 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight font-heading leading-tight">
+          hello welcome to medi track.
+        </h1>
+        <p class="text-sm sm:text-base text-slate-300 font-medium">
+          Your personal AI copilot for medical reports, symptom triage, and drug guidance.
+        </p>
+        <p class="text-xs text-slate-400 max-w-md mx-auto">
+          Ask any clinical doubt, dictate daily vitals, or scan prescription slips and lab tests for an instant clinical
+          synthesis.
+        </p>
+
+        <!-- 3 Try a Demo Chips -->
+        <div class="pt-2">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Try a Demo Scenario</div>
+          <div class="flex flex-wrap items-center justify-center gap-2">
+            <button onclick="App.runGuidedDemo()" id="btn-run-guided-demo-guest"
+              class="px-4 py-1.5 rounded-full text-xs bg-gradient-to-r from-teal-500/25 to-cyan-500/25 hover:from-teal-500/35 hover:to-cyan-500/35 text-teal-200 border border-teal-500/50 hover:border-teal-300 transition cursor-pointer flex items-center gap-1.5 shadow-md font-bold">
+              <i data-lucide="play-circle" class="w-3.5 h-3.5 text-teal-300"></i>
+              <span>✨ Run Guided Demo (Part 4)</span>
+            </button>
+            <button onclick="App.loadDemoPreset('bloodPanel')"
+              class="px-3.5 py-1.5 rounded-full text-xs bg-slate-900/90 hover:bg-slate-800 text-teal-300 border border-teal-500/30 hover:border-teal-400 transition cursor-pointer flex items-center gap-1.5 shadow-sm">
+              <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-teal-400"></i>
+              <span>Load sample lab report</span>
+            </button>
+            <button onclick="App.loadDemoPreset('prescription')"
+              class="px-3.5 py-1.5 rounded-full text-xs bg-slate-900/90 hover:bg-slate-800 text-amber-300 border border-amber-500/30 hover:border-amber-400 transition cursor-pointer flex items-center gap-1.5 shadow-sm">
+              <i data-lucide="pill" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span>Load sample prescription</span>
+            </button>
+            <button onclick="App.triggerEmergencyDemo()"
+              class="px-3.5 py-1.5 rounded-full text-xs bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-500/40 hover:border-rose-400 transition cursor-pointer flex items-center gap-1.5 shadow-sm">
+              <i data-lucide="alert-octagon" class="w-3.5 h-3.5 text-rose-400"></i>
+              <span>Check chest-pain red flags</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Glowing AI Capsule Bar -->
+      <div class="max-w-3xl mx-auto w-full">
+        <form onsubmit="App.handleBeforeChatSubmit(event)"
+          class="capsule-ai-bar flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-full shadow-2xl">
+          <!-- Left: "+" button for uploading reports (with camera capture on mobile) -->
+          <button type="button" id="before-attach-btn" onclick="document.getElementById('before-file-input').click()"
+            class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-800/90 hover:bg-teal-600/30 text-teal-400 hover:text-teal-200 border border-slate-700/80 hover:border-teal-500/50 flex items-center justify-center transition flex-shrink-0 cursor-pointer shadow-md"
+            title="Upload doctor slips, tablet strips, or lab tests (image/*, .pdf)" aria-label="Upload medical file">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+          </button>
+          <input type="file" id="before-file-input" accept="image/*,application/pdf" multiple capture="environment"
+            class="hidden" onchange="App.handleBeforeFileUpload(this.files)">
+
+          <!-- Middle: Text Input -->
+          <input id="before-ai-input" type="text" placeholder="Ask: . . . (describe symptoms or upload report)"
+            class="flex-1 bg-transparent px-3 py-2 text-xs sm:text-sm text-slate-100 placeholder-slate-400 focus:outline-none"
+            aria-label="Describe symptoms or clinical questions">
+
+          <!-- Right: Microphone and Send button -->
+          <button type="button" id="before-voice-btn" onclick="App.handleBeforeVoiceInput()"
+            class="p-2.5 rounded-full text-slate-400 hover:text-teal-300 hover:bg-slate-800/60 transition cursor-pointer flex-shrink-0"
+            title="Voice Input" aria-label="Microphone dictation">
+            <i data-lucide="mic" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+          </button>
+          <button type="submit" id="before-ai-send-btn"
+            class="capsule-send-btn px-5 py-2.5 sm:py-3 rounded-full text-white font-bold text-xs sm:text-sm shadow-lg transition flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+            aria-label="Send query">
+            <span>Send</span>
+            <i data-lucide="arrow-up" class="w-4 h-4"></i>
+          </button>
+        </form>
+
+        <!-- Upload Status Indicator -->
+        <div id="before-upload-status"
+          class="hidden mt-2.5 px-4 py-2 rounded-xl bg-teal-950/60 border border-teal-500/40 text-xs text-teal-300 flex items-center justify-between shadow-md">
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-teal-400 animate-ping"></div>
+            <span id="before-upload-status-text">Uploading and analyzing document with Gemini Multimodal OCR...</span>
+          </div>
+          <button type="button" onclick="document.getElementById('before-upload-status').classList.add('hidden')"
+            class="text-slate-400 hover:text-slate-200 cursor-pointer" aria-label="Close upload status">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Streaming Chat Feed Dock (Session-only in guest mode) -->
+      <div id="before-chat-dock"
+        class="hidden max-w-3xl mx-auto w-full glass-panel p-5 sm:p-6 rounded-3xl border border-slate-700/60 space-y-4 shadow-2xl transition-all duration-300">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-teal-500/20 text-teal-300 flex items-center justify-center">
+              <i data-lucide="bot" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <span class="text-xs font-bold text-slate-200">MediTrack AI Live Clinical Thread</span>
+              <span class="text-[10px] text-amber-400 block font-mono">⚠️ Guest session — data not saved</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="App.gotoState(2)"
+              class="px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-bold transition flex items-center gap-1 cursor-pointer">
+              <i data-lucide="save" class="w-3 h-3"></i>
+              <span>Log in to Save</span>
+            </button>
+            <button onclick="App.clearBeforeChat()"
+              class="text-slate-400 hover:text-rose-400 text-xs transition cursor-pointer p-1 rounded-lg hover:bg-slate-800"
+              title="Clear chat feed" aria-label="Clear chat feed">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="before-chat-feed" class="space-y-4 max-h-[500px] overflow-y-auto pr-1"></div>
+
+        <div id="before-chat-typing" class="hidden flex items-center gap-2 text-xs text-teal-400 pl-2 py-1">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="font-medium ml-1">MediTrack AI is analyzing clinical data...</span>
+        </div>
+      </div>
+
+      <!-- Preview Card: Result Report Summary Preview -->
+      <div class="max-w-3xl mx-auto glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2.5">
+            <div
+              class="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-300">
+              <i data-lucide="file-check-2" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h2 class="text-sm font-bold text-white font-heading">Result Report • Preview</h2>
+              <div class="text-[11px] text-slate-400">Clinical synthesis preview of current vitals and markers</div>
+            </div>
+          </div>
+          <button onclick="App.gotoState(2)"
+            class="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-500/20 transition cursor-pointer flex items-center gap-1.5">
+            <span>Sign In to Save</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-1">
+            <span class="text-[10px] text-slate-400 font-semibold uppercase">Parsed Vitals</span>
+            <div class="text-base font-bold text-teal-300 font-mono">124/80 <span
+                class="text-xs text-slate-400">mmHg</span></div>
+            <div class="text-[11px] text-slate-400">Blood Sugar: 112 mg/dL</div>
+          </div>
+          <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-1">
+            <span class="text-[10px] text-slate-400 font-semibold uppercase">Clinical Insight</span>
+            <div class="text-xs font-bold text-emerald-400">Mild Glycemic Strain</div>
+            <div class="text-[11px] text-slate-400">Well-compensated vascular state</div>
+          </div>
+          <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-1">
+            <span class="text-[10px] text-slate-400 font-semibold uppercase">Active Regimen</span>
+            <div class="text-xs font-bold text-slate-200">3 Prescriptions Found</div>
+            <div class="text-[11px] text-slate-400">Metformin, Atorvastatin, Telmisartan</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ======================================================= -->
+    <!-- STATE 2: DEDICATED LOGIN / REGISTER (#view-login-page)  -->
+    <!-- ======================================================= -->
+    <main id="view-login-page"
+      class="content-view hidden w-full overflow-y-auto h-[calc(100vh-61px)] p-4 sm:p-8 max-w-xl mx-auto py-8 sm:py-12 animate-slide-down">
+      <div class="glass-panel-elevated p-6 sm:p-8 rounded-3xl border border-slate-700 shadow-2xl space-y-5">
+        <div class="text-center space-y-1.5">
+          <div
+            class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-white mx-auto shadow-lg shadow-teal-500/25 mb-2">
+            <i data-lucide="shield-check" class="w-6 h-6"></i>
+          </div>
+          <h1 class="text-xl sm:text-2xl font-bold text-white font-heading">Sign In to Health Vault</h1>
+          <p class="text-xs text-slate-400">Ayushman Bharat Digital Mission (ABDM) Identity Verification</p>
+        </div>
+
+        <form onsubmit="App.handleLogin(event)" class="space-y-4">
+          <!-- 1-Click Demo Fill Shortcut -->
+          <div class="flex items-center justify-between pb-1 border-b border-slate-800">
+            <span class="text-xs text-slate-400">Quick Test Credentials</span>
+            <button type="button" onclick="App.fillDemoLogin()"
+              class="text-xs text-teal-400 hover:text-teal-300 font-bold underline cursor-pointer flex items-center gap-1">
+              <span>⚡ 1-Click Demo Fill</span>
+            </button>
+          </div>
+
+          <!-- Full Name* & Age* -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Full Name *</label>
+              <input id="login-name-input" type="text" required placeholder="e.g. Sravanthi Reddy"
+                value="Sravanthi Reddy"
+                class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-teal-500 transition">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Age *</label>
+              <input id="login-age-input" type="number" min="1" max="120" required placeholder="38" value="38"
+                class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-teal-500 transition">
+            </div>
+          </div>
+
+          <!-- ABHA ID / Indian Mobile -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-semibold text-slate-300">ABHA ID or 10-Digit Mobile *</label>
+              <span id="login-abha-validation-badge" class="text-[10px] text-teal-400 font-mono">Format:
+                XX-XXXX-XXXX-XXXX</span>
+            </div>
+            <input id="login-abha-input" type="text" required placeholder="91-4523-8821-1234 or 9876543210"
+              value="91-4523-8821-1234" oninput="App.validateLoginIdentity(this.value)"
+              class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-teal-500 transition">
+          </div>
+
+          <!-- Weight & Height -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Weight (kg)</label>
+              <input id="login-weight-input" type="number" min="20" max="250" placeholder="62" value="62"
+                class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-teal-500 transition">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Height (cm)</label>
+              <input id="login-height-input" type="number" min="60" max="250" placeholder="165" value="165"
+                class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-teal-500 transition">
+            </div>
+          </div>
+
+          <!-- Avatar Picker -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Select Profile Avatar</label>
+            <div class="flex items-center gap-2" id="login-avatar-picker">
+              <button type="button" onclick="App.selectLoginAvatar('SR', 'from-teal-500 to-emerald-600')"
+                class="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-bold text-xs border-2 border-teal-400 flex items-center justify-center cursor-pointer shadow-md avatar-opt"
+                data-avatar="SR">SR</button>
+              <button type="button" onclick="App.selectLoginAvatar('RK', 'from-blue-500 to-indigo-600')"
+                class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-xs border border-slate-700 flex items-center justify-center cursor-pointer avatar-opt"
+                data-avatar="RK">RK</button>
+              <button type="button" onclick="App.selectLoginAvatar('AK', 'from-purple-500 to-pink-600')"
+                class="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 text-white font-bold text-xs border border-slate-700 flex items-center justify-center cursor-pointer avatar-opt"
+                data-avatar="AK">AK</button>
+              <button type="button" onclick="App.selectLoginAvatar('MK', 'from-amber-500 to-orange-600')"
+                class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold text-xs border border-slate-700 flex items-center justify-center cursor-pointer avatar-opt"
+                data-avatar="MK">MK</button>
+            </div>
+          </div>
+
+          <!-- 6-digit OTP Verification & Mock Link ABHA Button -->
+          <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-semibold text-slate-300">6-Digit Verification OTP</label>
+              <button type="button" onclick="App.openLinkAbhaModal()"
+                class="px-2.5 py-1 rounded-lg bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-[10px] font-bold cursor-pointer transition flex items-center gap-1">
+                <i data-lucide="link" class="w-3 h-3"></i>
+                <span>Link ABHA (Mock OTP)</span>
+              </button>
+            </div>
+            <input id="login-otp-input" type="text" required maxlength="6" value="784920" placeholder="784920"
+              class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-xs text-slate-100 font-mono tracking-widest text-center focus:outline-none focus:border-teal-500 transition">
+            <div id="login-abha-linked-status" class="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+              <span>ABHA ID verified (Mock Address: sravanthi@abdm)</span>
+            </div>
+          </div>
+
+          <!-- Account Vault Role -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-semibold text-slate-300">Account Vault Role</label>
+              <span class="text-[10px] text-teal-400 font-mono">Single Primary User</span>
+            </div>
+            <div
+              class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <span
+                  class="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-300 flex items-center justify-center font-bold text-xs">👤</span>
+                <span class="font-bold text-white">Primary Account Holder (Self)</span>
+              </div>
+              <span
+                class="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">ABDM
+                Vault</span>
+            </div>
+          </div>
+
+          <!-- Preference Checkbox: Chronic Daily Monitoring -->
+          <div class="p-3 rounded-xl bg-teal-950/20 border border-teal-500/30 flex items-start gap-2.5">
+            <input type="checkbox" id="login-pref-monitoring" checked
+              class="mt-0.5 rounded border-slate-700 text-teal-600 focus:ring-teal-500 cursor-pointer">
+            <label for="login-pref-monitoring" class="text-xs text-slate-300 leading-snug cursor-pointer">
+              <strong>Enable Daily Chronic Monitoring for this Profile? [ YES / NO ]</strong>
+              <div class="text-[11px] text-slate-400 mt-0.5">Auto-compares previous day vs today's blood pressure and
+                fasting glucose.</div>
+            </label>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="space-y-2 pt-2">
+            <button type="submit" id="btn-submit-login"
+              class="w-full py-3 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-white font-bold text-xs shadow-lg shadow-teal-500/25 transition cursor-pointer flex items-center justify-center gap-2">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span>Sign In to Health Vault</span>
+            </button>
+
+            <button type="button" onclick="App.gotoState(1)"
+              class="w-full py-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 font-semibold text-xs border border-slate-700 transition cursor-pointer flex items-center justify-center gap-1.5">
+              <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+              <span>Back to Guest Mode</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+
+    <!-- ======================================================= -->
+    <!-- STATE 3: LOGGED-IN SHELL & SUB-VIEWS (#view-after-login)-->
+    <!-- ======================================================= -->
+    <div id="view-after-login" class="hidden flex flex-1 w-full overflow-hidden relative">
+
+      <!-- Off-canvas drawer backdrop for mobile (<768px) -->
+      <div id="drawer-backdrop" class="drawer-backdrop hidden" onclick="App.closeMobileMenu()" aria-hidden="true"></div>
+
+      <!-- LEFT SIDEBAR (260px Dark Glassmorphism, Collapsible) -->
+      <aside id="app-sidebar" class="sidebar-container sidebar-sticky flex flex-col gap-2 p-2.5 z-30"
+        aria-label="Sidebar Navigation">
+
+        <!-- 1. Profile Card with Quick Switcher & "+ Add Person" -->
+        <div class="p-2.5 rounded-xl glass-panel-elevated border border-slate-700/80 space-y-1.5">
+          <div class="flex items-center gap-2">
+            <div id="sidebar-user-avatar"
+              class="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center font-bold text-xs text-white shadow-md shadow-teal-500/20 flex-shrink-0">
+              SR
+            </div>
+            <div class="flex-1 min-w-0 sidebar-profile-details">
+              <div class="flex items-center justify-between">
+                <div id="sidebar-user-name" class="font-bold text-xs text-white truncate">Sravanthi (Self)</div>
+                <button id="btn-sidebar-delete-profile" onclick="App.deleteActiveProfile()"
+                  class="hidden p-1 text-slate-400 hover:text-rose-400 rounded transition cursor-pointer"
+                  title="Delete active profile">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+              <div class="flex items-center gap-1 mt-0.5">
+                <span class="status-chip status-chip-green px-1.5 py-0.5 text-[9px]">
+                  <span class="dot-glow"></span>
+                  <span>● ABHA Active</span>
+                </span>
+              </div>
+              <div id="sidebar-user-abha" class="text-[10px] text-teal-300 font-mono truncate">91-4523-8821-1234</div>
+            </div>
+          </div>
+
+          <!-- Quick Profile Switcher Grid + Add Person Button -->
+          <div class="pt-1.5 border-t border-slate-800 sidebar-profile-details">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[9px] uppercase font-bold text-slate-400">Switch Patient</span>
+              <button id="btn-sidebar-add-person" onclick="App.openAddPersonModal()"
+                class="text-[9px] text-teal-400 hover:text-teal-300 font-semibold flex items-center gap-0.5 cursor-pointer">
+                <i data-lucide="plus" class="w-3 h-3"></i>
+                <span>Add Person</span>
+              </button>
+            </div>
+            <!-- Dynamic Profile Switcher (Exactly 1 Primary Profile by Default) -->
+            <div id="sidebar-profile-pills-container" class="space-y-0.5">
+              <!-- Rendered dynamically by App.updateSidebarUI() -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Navigation Menu Items -->
+        <nav class="glass-panel p-1.5 rounded-xl border border-slate-700/60 space-y-0.5" aria-label="Main navigation">
+          <!-- Home -->
+          <button id="btn-nav-home" onclick="App.switchView('home')" data-view="home"
+            class="sidebar-nav-item nav-btn-active w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-teal-300 hover:bg-slate-800/60 border border-teal-500/50 transition text-left cursor-pointer">
+            <i data-lucide="home" class="w-4 h-4 text-teal-400 flex-shrink-0"></i>
+            <span class="sidebar-label" data-i18n="navHome">Home Workspace</span>
+          </button>
+
+          <!-- Records & Timeline -->
+          <button id="btn-nav-records" onclick="App.switchView('records')" data-view="records"
+            class="sidebar-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:bg-slate-800/60 border border-transparent transition text-left cursor-pointer">
+            <i data-lucide="folder-clock" class="w-4 h-4 text-indigo-400 flex-shrink-0"></i>
+            <span class="sidebar-label">Records & Timeline</span>
+          </button>
+
+          <!-- Result - Analysis -->
+          <button id="btn-nav-result" onclick="App.switchView('result')" data-view="result"
+            class="sidebar-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:bg-slate-800/60 border border-transparent transition text-left cursor-pointer">
+            <i data-lucide="file-text" class="w-4 h-4 text-rose-400 flex-shrink-0"></i>
+            <span class="sidebar-label" data-i18n="navResult">Result - Analysis</span>
+          </button>
+
+          <!-- Daily Monitoring -->
+          <button id="btn-nav-monitoring" onclick="App.switchView('monitoring')" data-view="monitoring"
+            class="sidebar-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:bg-slate-800/60 border border-transparent transition text-left cursor-pointer">
+            <i data-lucide="activity" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
+            <span class="sidebar-label" data-i18n="navMonitoring">Daily Monitoring</span>
+          </button>
+
+          <!-- Safety & Habits -->
+          <button id="btn-nav-safety-habits" onclick="App.switchView('safety-habits')" data-view="safety-habits"
+            class="sidebar-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:bg-slate-800/60 border border-transparent transition text-left cursor-pointer">
+            <i data-lucide="heart" class="w-4 h-4 text-sky-400 flex-shrink-0"></i>
+            <span class="sidebar-label" data-i18n="navSafety">Safety & Habits</span>
+          </button>
+
+          <!-- Active Medications -->
+          <button id="btn-nav-medications" onclick="App.switchView('medications')" data-view="medications"
+            class="sidebar-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:bg-slate-800/60 border border-transparent transition text-left cursor-pointer">
+            <i data-lucide="pill" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
+            <span class="sidebar-label">Medications</span>
+          </button>
+
+          <!-- ABHA & Health ID -->
+          <button id="btn-nav-abha" onclick="App.switchView('abha')" data-view="abha"
+            class="sidebar-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:bg-slate-800/60 border border-transparent transition text-left cursor-pointer">
+            <i data-lucide="qr-code" class="w-4 h-4 text-teal-400 flex-shrink-0"></i>
+            <span class="sidebar-label">ABHA & Health ID</span>
+          </button>
+
+          <!-- Settings & API Keys -->
+          <button id="btn-nav-settings" onclick="App.switchView('settings')" data-view="settings"
+            class="sidebar-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:bg-slate-800/60 border border-transparent transition text-left cursor-pointer">
+            <i data-lucide="settings" class="w-4 h-4 text-slate-400 flex-shrink-0"></i>
+            <span class="sidebar-label">Settings</span>
+          </button>
+
+          <!-- Architecture Blueprint -->
+          <button id="btn-nav-architecture" onclick="App.switchView('architecture')" data-view="architecture"
+            class="sidebar-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:bg-slate-800/60 border border-transparent transition text-left cursor-pointer">
+            <i data-lucide="layers" class="w-4 h-4 text-cyan-400 flex-shrink-0"></i>
+            <span class="sidebar-label">Architecture</span>
+          </button>
+        </nav>
+
+        <!-- 3. Health Stability Index Mini Widget -->
+        <div class="glass-panel p-2.5 rounded-xl border border-slate-700/60 space-y-1.5 mt-auto sidebar-widget-details">
+          <div class="flex items-center justify-between">
+            <span class="text-[9px] uppercase font-bold text-slate-400">Stability Index</span>
+            <span id="sidebar-stability-score" class="text-xs font-bold text-teal-400">85% Stable</span>
+          </div>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div id="sidebar-stability-bar" class="bg-gradient-to-r from-teal-500 to-emerald-400 h-1.5 rounded-full"
+              style="width: 85%"></div>
+          </div>
+          <div class="text-[9px] text-emerald-400 font-medium flex items-center gap-1">
+            <i data-lucide="trending-up" class="w-2.5 h-2.5"></i>
+            <span id="sidebar-stability-trend">+4% improvement vs yesterday</span>
+          </div>
+        </div>
+
+        <!-- 4. Sidebar Controls: Collapse Toggle & Sign Out -->
+        <div class="flex items-center gap-1.5 pt-1 border-t border-slate-800">
+          <button id="btn-sidebar-collapse" onclick="App.toggleSidebarCollapse()"
+            class="hidden md:flex p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            title="Collapse sidebar to icons" aria-label="Collapse sidebar">
+            <i data-lucide="panel-left-close" class="w-4 h-4"></i>
+          </button>
+          <button id="btn-sidebar-logout" onclick="App.logout()"
+            class="flex-1 p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800/80 border border-slate-800 transition flex items-center justify-center gap-2 text-xs font-semibold cursor-pointer"
+            aria-label="Sign out session">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span class="sidebar-label">Sign Out</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- RIGHT MAIN CONTENT SCROLL AREA FOR SUB-PAGES -->
+      <main id="main-logged-in-content"
+        class="main-content-scroll main-scroll flex-1 min-w-0 p-4 sm:p-8 overflow-y-auto h-[calc(100vh-61px)]">
+
+        <!-- ===================================================== -->
+        <!-- SUB-PAGE 1: HOME DASHBOARD (#view-after-home)         -->
+        <!-- ===================================================== -->
+        <div id="view-after-home" class="sub-view max-w-4xl mx-auto space-y-7">
+          <!-- Central Greeting Hero -->
+          <div class="text-center max-w-2xl mx-auto space-y-2">
+            <div
+              class="inline-flex items-center gap-2 px-3 py-1 rounded-full status-chip status-chip-green text-xs font-semibold shadow-sm">
+              <span class="dot-glow radar-dot"></span>
+              <span id="after-home-profile-badge">Active Profile: Sravanthi (Self) • ● ABHA Active</span>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-heading leading-tight">
+              hello! I'm meditrack AI - welcome
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-300 font-medium">
+              Your personal health copilot connected directly to your encrypted ABHA Health Vault.
+            </p>
+          </div>
+
+          <!-- Capsule AI Bar on Home Dashboard -->
+          <div class="max-w-3xl mx-auto w-full">
+            <form onsubmit="App.handleAfterChatSubmit(event)"
+              class="capsule-ai-bar flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-full shadow-2xl">
+              <button type="button" id="home-attach-btn" onclick="document.getElementById('home-file-input').click()"
+                class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-800/90 hover:bg-teal-600/30 text-teal-400 hover:text-teal-200 border border-slate-700/80 hover:border-teal-500/50 flex items-center justify-center transition flex-shrink-0 cursor-pointer shadow-md"
+                title="Upload doctor slips, tablet strips, or lab tests (image/*, .pdf)" aria-label="Upload document">
+                <i data-lucide="plus" class="w-5 h-5"></i>
+              </button>
+              <input type="file" id="home-file-input" accept="image/*,application/pdf" multiple capture="environment"
+                class="hidden" onchange="App.handleAfterFileUpload(this.files)">
+
+              <input id="home-ai-input" type="text"
+                placeholder="Ask AI or describe vitals (e.g., 'BP is 120/80 and sugar 110')..."
+                class="flex-1 bg-transparent px-3 py-2 text-xs sm:text-sm text-slate-100 placeholder-slate-400 focus:outline-none"
+                aria-label="Ask MediTrack AI or log vitals">
+
+              <button type="button" id="home-voice-btn" onclick="App.handleAfterVoiceInput()"
+                class="p-2.5 rounded-full text-slate-400 hover:text-teal-300 hover:bg-slate-800/60 transition cursor-pointer flex-shrink-0"
+                title="Voice Input" aria-label="Microphone dictation">
+                <i data-lucide="mic" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+              </button>
+              <button type="submit" id="home-ai-send-btn"
+                class="capsule-send-btn px-5 py-2.5 sm:py-3 rounded-full text-white font-bold text-xs sm:text-sm shadow-lg transition flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+                aria-label="Send clinical query">
+                <span>Send</span>
+                <i data-lucide="arrow-up" class="w-4 h-4"></i>
+              </button>
+            </form>
+
+            <div id="home-upload-status"
+              class="hidden mt-2.5 px-4 py-2 rounded-xl bg-teal-950/60 border border-teal-500/40 text-xs text-teal-300 flex items-center justify-between shadow-md">
+              <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-teal-400 animate-ping"></div>
+                <span id="home-upload-status-text">Scanning document with Gemini Multimodal OCR...</span>
+              </div>
+              <button type="button" onclick="document.getElementById('home-upload-status').classList.add('hidden')"
+                class="text-slate-400 hover:text-slate-200 cursor-pointer" aria-label="Close upload status">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <!-- Ask My Records Assistant Quick Chips -->
+            <div class="flex flex-wrap items-center justify-center gap-2 pt-2.5">
+              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Ask My Records:</span>
+              <button type="button" onclick="App.askQuickRecordQuery('What are my out-of-range results?')"
+                class="query-chip">
+                <i data-lucide="alert-circle" class="w-3 h-3 text-amber-400"></i>
+                <span>Out-of-range results?</span>
+              </button>
+              <button type="button" onclick="App.askQuickRecordQuery('When should I take Metformin?')"
+                class="query-chip">
+                <i data-lucide="clock" class="w-3 h-3 text-teal-400"></i>
+                <span>When should I take Metformin?</span>
+              </button>
+              <button type="button" onclick="App.askQuickRecordQuery('Explain my HbA1c trend')" class="query-chip">
+                <i data-lucide="trending-down" class="w-3 h-3 text-cyan-400"></i>
+                <span>Explain HbA1c trend</span>
+              </button>
+              <button type="button" onclick="App.askQuickRecordQuery('Are there any drug interactions?')"
+                class="query-chip">
+                <i data-lucide="shield-alert" class="w-3 h-3 text-rose-400"></i>
+                <span>Drug interactions?</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Live Chat Stream Dock -->
+          <div id="home-chat-dock"
+            class="hidden max-w-3xl mx-auto w-full glass-panel p-5 sm:p-6 rounded-3xl border border-slate-700/60 space-y-4 shadow-2xl transition-all duration-300">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-teal-500/20 text-teal-300 flex items-center justify-center">
+                  <i data-lucide="bot" class="w-4 h-4"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-200">Clinical Conversation & Report Breakdown</span>
+              </div>
+              <button id="btn-clear-home-chat" onclick="App.clearHomeChat()"
+                class="text-slate-400 hover:text-rose-400 text-xs transition cursor-pointer p-1 rounded-lg hover:bg-slate-800"
+                title="Clear chat feed" aria-label="Clear chat feed">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <div id="home-chat-feed" class="space-y-4 max-h-[500px] overflow-y-auto pr-1"></div>
+
+            <div id="home-chat-typing" class="hidden flex items-center gap-2 text-xs text-teal-400 pl-2 py-1">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="font-medium ml-1">MediTrack AI is analyzing clinical data...</span>
+            </div>
+          </div>
+
+          <!-- ===================================================== -->
+          <!-- 4 EXECUTIVE STAT CARDS (Records, Abnormal, Meds, Appt) -->
+          <!-- ===================================================== -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1">
+            <!-- Stat Card 1: Records Analysed -->
+            <div
+              class="glass-panel p-4 rounded-2xl border border-slate-700/60 flex flex-col justify-between space-y-3 cursor-pointer hover:border-teal-500/50 transition group"
+              onclick="App.switchView('records')">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Records Analysed</span>
+                <div class="w-8 h-8 rounded-xl bg-teal-500/15 text-teal-400 flex items-center justify-center">
+                  <i data-lucide="folder-check" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div>
+                <div class="text-2xl font-extrabold text-white font-mono" id="stat-records-count">3</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <span class="status-chip status-chip-green text-[10px] py-0.5 px-2">
+                    <span class="dot-glow"></span>
+                    <span id="stat-facilities-text">Apollo & Metropolis</span>
+                  </span>
+                </div>
+              </div>
+              <div
+                class="text-[11px] text-teal-400 font-semibold flex items-center gap-1 pt-1 border-t border-slate-800/80">
+                <span>View records timeline</span>
+                <i data-lucide="arrow-right" class="w-3 h-3"></i>
+              </div>
+            </div>
+
+            <!-- Stat Card 2: Values Out of Range -->
+            <div
+              class="glass-panel p-4 rounded-2xl border border-slate-700/60 flex flex-col justify-between space-y-3 cursor-pointer hover:border-amber-500/50 transition group"
+              onclick="App.switchView('result')">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Values Out of Range</span>
+                <div class="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
+                  <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div>
+                <div class="text-2xl font-extrabold text-amber-400 font-mono" id="stat-out-of-range-count">2</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <span class="status-chip status-chip-amber text-[10px] py-0.5 px-2">
+                    <span class="dot-glow"></span>
+                    <span id="stat-out-of-range-text">● High: HbA1c, LDL-C</span>
+                  </span>
+                </div>
+              </div>
+              <div
+                class="text-[11px] text-amber-400 font-semibold flex items-center gap-1 pt-1 border-t border-slate-800/80">
+                <span>Review clinical flags</span>
+                <i data-lucide="arrow-right" class="w-3 h-3"></i>
+              </div>
+            </div>
+
+            <!-- Stat Card 3: Active Medications -->
+            <div
+              class="glass-panel p-4 rounded-2xl border border-slate-700/60 flex flex-col justify-between space-y-3 cursor-pointer hover:border-emerald-500/50 transition group"
+              onclick="App.switchView('medications')">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Active Medications</span>
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                  <i data-lucide="pill" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div>
+                <div class="text-2xl font-extrabold text-white font-mono" id="stat-active-meds-count">3</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <span class="status-chip status-chip-green text-[10px] py-0.5 px-2">
+                    <span class="dot-glow"></span>
+                    <span id="stat-interactions-text">● 0 Harmful Interactions</span>
+                  </span>
+                </div>
+              </div>
+              <div
+                class="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 pt-1 border-t border-slate-800/80">
+                <span>Inspect pill schedule</span>
+                <i data-lucide="arrow-right" class="w-3 h-3"></i>
+              </div>
+            </div>
+
+            <!-- Stat Card 4: Upcoming Follow-ups -->
+            <div
+              class="glass-panel p-4 rounded-2xl border border-slate-700/60 flex flex-col justify-between space-y-3 cursor-pointer hover:border-sky-500/50 transition group"
+              onclick="App.openAiSummaryDrawer()">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Upcoming Follow-ups</span>
+                <div class="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center">
+                  <i data-lucide="calendar" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div>
+                <div class="text-sm font-extrabold text-sky-300 truncate" id="stat-followup-date">Nov 12, 2026</div>
+                <div class="text-[11px] text-slate-400 truncate mt-1" id="stat-followup-doctor">
+                  Dr. S. Ranganathan, MD • Apollo
+                </div>
+              </div>
+              <div
+                class="text-[11px] text-sky-400 font-semibold flex items-center gap-1 pt-1 border-t border-slate-800/80">
+                <span>AI Consultation Brief</span>
+                <i data-lucide="sparkles" class="w-3 h-3"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===================================================== -->
+          <!-- LONGITUDINAL LAB TREND ANALYTICS & RESULTS GAUGE      -->
+          <!-- ===================================================== -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-1">
+            <!-- Left 2 cols: Longitudinal Line Graph with Normal Reference Bands -->
+            <div class="lg:col-span-2 glass-panel p-5 rounded-3xl border border-slate-700/60 space-y-3.5">
+              <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse"></span>
+                    <h3 class="text-sm font-bold text-white font-heading">Longitudinal Lab Trend Analytics</h3>
+                  </div>
+                  <p class="text-[11px] text-slate-400">6-Month biomarker progression with shaded reference boundaries
+                  </p>
+                </div>
+                <!-- Filter Tabs -->
+                <div class="flex items-center bg-slate-900/80 p-0.5 rounded-xl border border-slate-800 text-[11px]">
+                  <button id="btn-trend-all" onclick="App.setTrendBiomarker('all')"
+                    class="px-2 py-1 rounded-lg font-semibold text-teal-300 bg-teal-950/80 border border-teal-500/40 transition">All
+                    Combined</button>
+                  <button id="btn-trend-hba1c" onclick="App.setTrendBiomarker('hba1c')"
+                    class="px-2 py-1 rounded-lg font-semibold text-slate-400 hover:text-slate-200 transition">HbA1c</button>
+                  <button id="btn-trend-glucose" onclick="App.setTrendBiomarker('glucose')"
+                    class="px-2 py-1 rounded-lg font-semibold text-slate-400 hover:text-slate-200 transition">Glucose</button>
+                  <button id="btn-trend-creatinine" onclick="App.setTrendBiomarker('creatinine')"
+                    class="px-2 py-1 rounded-lg font-semibold text-slate-400 hover:text-slate-200 transition">Creatinine</button>
+                </div>
+              </div>
+
+              <!-- Line Chart Canvas -->
+              <div class="relative h-60 w-full">
+                <canvas id="chart-longitudinal-trends"></canvas>
+              </div>
+
+              <!-- Trend Footer Indicators -->
+              <div class="grid grid-cols-3 gap-2 pt-1 text-center border-t border-slate-800/80 text-xs">
+                <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800">
+                  <span class="text-[10px] text-slate-400 block font-medium">HbA1c (&lt;6.5%)</span>
+                  <span class="font-bold text-amber-400 font-mono text-xs">7.6% (Trending Down ▼)</span>
+                </div>
+                <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800">
+                  <span class="text-[10px] text-slate-400 block font-medium">Fasting Sugar (70-99)</span>
+                  <span class="font-bold text-amber-400 font-mono text-xs">142 mg/dL (Dawn Spike)</span>
+                </div>
+                <div class="p-2 rounded-xl bg-slate-900/60 border border-slate-800">
+                  <span class="text-[10px] text-slate-400 block font-medium">Creatinine (0.6-1.2)</span>
+                  <span class="font-bold text-emerald-400 font-mono text-xs">1.02 mg/dL (Optimal)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right 1 col: Biomarker Donut Gauge & Executive Summary Trigger -->
+            <div
+              class="glass-panel p-5 rounded-3xl border border-slate-700/60 flex flex-col justify-between space-y-3.5">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <div>
+                  <h3 class="text-sm font-bold text-white font-heading">Biomarker Range Gauge</h3>
+                  <p class="text-[11px] text-slate-400">Total clinical tests evaluated</p>
+                </div>
+                <span class="status-chip status-chip-cyan text-[10px] py-0.5 px-2">● Synced</span>
+              </div>
+
+              <!-- Donut Chart with Center Percentage -->
+              <div class="relative h-40 flex items-center justify-center">
+                <canvas id="chart-results-gauge"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span class="text-2xl font-extrabold text-white font-mono" id="gauge-percent-text">80%</span>
+                  <span class="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">In-Range</span>
+                </div>
+              </div>
+
+              <div class="space-y-1.5 text-xs">
+                <div
+                  class="flex items-center justify-between text-[11px] p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <span class="flex items-center gap-1.5 text-emerald-300 font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span> In-Range (Normal)
+                  </span>
+                  <span class="font-bold text-emerald-300 font-mono" id="gauge-in-range-count">8 Tests</span>
+                </div>
+                <div
+                  class="flex items-center justify-between text-[11px] p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <span class="flex items-center gap-1.5 text-amber-300 font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-amber-400"></span> Out-of-Range (Actionable)
+                  </span>
+                  <span class="font-bold text-amber-300 font-mono" id="gauge-out-range-count">2 Tests</span>
+                </div>
+              </div>
+
+              <!-- "Summary with AI" Slide-Over Drawer Button -->
+              <button onclick="App.openAiSummaryDrawer()" id="btn-open-ai-summary"
+                class="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-teal-500/20 to-cyan-500/20 hover:from-teal-500/30 hover:to-cyan-500/30 border border-teal-500/40 text-teal-300 font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+                <i data-lucide="sparkles" class="w-4 h-4 text-teal-400"></i>
+                <span>Executive Summary with AI</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 5 Quick-Action Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
+            <!-- Card 1: Upload Report -->
+            <div onclick="document.getElementById('home-file-input').click()"
+              class="p-4 sm:p-5 rounded-3xl glass-panel border border-slate-700/60 hover:border-teal-500/50 transition cursor-pointer group space-y-2">
+              <div
+                class="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-300 group-hover:scale-105 transition">
+                <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+              </div>
+              <h3 class="font-bold text-xs sm:text-sm text-white group-hover:text-teal-300 transition">Upload Report
+              </h3>
+              <p class="text-xs text-slate-400">Scan lab results, prescription slips, or radiology summaries.</p>
+              <div class="text-[11px] text-teal-400 font-semibold flex items-center gap-1 pt-0.5">
+                <span>Select file or photo</span>
+                <i data-lucide="chevron-right" class="w-3 h-3"></i>
+              </div>
+            </div>
+
+            <!-- Card 2: Today's Vitals -->
+            <div onclick="App.openLogTodayModal()"
+              class="p-4 sm:p-5 rounded-3xl glass-panel border border-slate-700/60 hover:border-emerald-500/50 transition cursor-pointer group space-y-2">
+              <div
+                class="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-300 group-hover:scale-105 transition">
+                <i data-lucide="activity" class="w-5 h-5"></i>
+              </div>
+              <h3 class="font-bold text-xs sm:text-sm text-white group-hover:text-emerald-300 transition">Today's Vitals
+              </h3>
+              <div class="flex items-baseline gap-2">
+                <span id="quick-vitals-bp" class="text-sm font-bold text-teal-300 font-mono">120/80</span>
+                <span id="quick-vitals-sugar" class="text-xs text-slate-300 font-mono">102 mg/dL</span>
+              </div>
+              <div class="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 pt-0.5">
+                <span>Log new reading</span>
+                <i data-lucide="plus" class="w-3 h-3"></i>
+              </div>
+            </div>
+
+            <!-- Card 3: Next Medicine Dose -->
+            <div onclick="App.switchView('medications')"
+              class="p-4 sm:p-5 rounded-3xl glass-panel border border-slate-700/60 hover:border-amber-500/50 transition cursor-pointer group space-y-2">
+              <div
+                class="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-300 group-hover:scale-105 transition">
+                <i data-lucide="clock" class="w-5 h-5"></i>
+              </div>
+              <h3 class="font-bold text-xs sm:text-sm text-white group-hover:text-amber-300 transition">Next Medicine
+                Dose</h3>
+              <p id="quick-next-med-text" class="text-xs text-slate-300 font-medium">Metformin 500mg • After Lunch (1:30
+                PM)</p>
+              <div class="text-[11px] text-amber-400 font-semibold flex items-center gap-1 pt-0.5">
+                <span>View pill regimen</span>
+                <i data-lucide="chevron-right" class="w-3 h-3"></i>
+              </div>
+            </div>
+
+            <!-- Card 4: Latest Abnormal Finding -->
+            <div onclick="App.switchView('result')"
+              class="p-4 sm:p-5 rounded-3xl glass-panel border border-slate-700/60 hover:border-rose-500/50 transition cursor-pointer group space-y-2">
+              <div
+                class="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-300 group-hover:scale-105 transition">
+                <i data-lucide="alert-circle" class="w-5 h-5"></i>
+              </div>
+              <h3 class="font-bold text-xs sm:text-sm text-white group-hover:text-rose-300 transition">Latest Abnormal
+                Finding</h3>
+              <p id="quick-abnormal-text" class="text-xs text-rose-300 font-mono">HbA1c: 7.6% (Diabetic Range > 6.5%)
+              </p>
+              <div class="text-[11px] text-rose-400 font-semibold flex items-center gap-1 pt-0.5">
+                <span>Analysis report</span>
+                <i data-lucide="chevron-right" class="w-3 h-3"></i>
+              </div>
+            </div>
+
+            <!-- Card 5: Health Stability Score -->
+            <div onclick="App.switchView('monitoring')"
+              class="sm:col-span-2 lg:col-span-2 p-4 sm:p-5 rounded-3xl glass-panel border border-slate-700/60 hover:border-teal-500/50 transition cursor-pointer group space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                  <div
+                    class="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-300">
+                    <i data-lucide="trending-up" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h3 class="font-bold text-xs sm:text-sm text-white">Dynamic Health Stability Score</h3>
+                    <div class="text-[11px] text-emerald-400 font-medium">85% Stable • +4% vs yesterday</div>
+                  </div>
+                </div>
+                <span class="text-sm font-extrabold text-teal-400 font-mono">85 / 100</span>
+              </div>
+              <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div class="bg-gradient-to-r from-teal-500 to-emerald-400 h-2 rounded-full" style="width: 85%"></div>
+              </div>
+              <div class="text-[11px] text-slate-400 flex items-center justify-between pt-0.5">
+                <span>Safe glycemic & vascular compensation</span>
+                <span class="text-teal-400 font-semibold flex items-center gap-1">Open Telemetry <i
+                    data-lucide="chevron-right" class="w-3 h-3"></i></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- SUB-PAGE 2: RECORDS & TIMELINE (#view-records)        -->
+        <!-- ===================================================== -->
+        <div id="view-records" class="sub-view hidden max-w-4xl mx-auto space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-800">
+            <div>
+              <span
+                class="px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-[11px] font-bold">ABDM
+                Health Locker</span>
+              <h2 class="text-2xl font-bold text-white font-heading mt-1">Health Records & Longitudinal Timeline</h2>
+              <p class="text-xs text-slate-400">Chronological history of diagnostic lab reports, prescriptions, and
+                radiology scans.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="App.exportFhirBundle()"
+                class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Export FHIR R4</span>
+              </button>
+              <button onclick="document.getElementById('home-file-input').click()"
+                class="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-500/20 transition flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>+ Upload Record</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filter Pills -->
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="App.filterRecords('all')"
+              class="records-filter-pill px-3 py-1 rounded-xl text-xs font-semibold bg-teal-600 text-white shadow-sm cursor-pointer"
+              data-type="all">All Documents</button>
+            <button onclick="App.filterRecords('lab')"
+              class="records-filter-pill px-3 py-1 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-700 text-slate-300 hover:border-slate-500 cursor-pointer"
+              data-type="lab">Lab Reports</button>
+            <button onclick="App.filterRecords('prescription')"
+              class="records-filter-pill px-3 py-1 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-700 text-slate-300 hover:border-slate-500 cursor-pointer"
+              data-type="prescription">Prescriptions</button>
+            <button onclick="App.filterRecords('radiology')"
+              class="records-filter-pill px-3 py-1 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-700 text-slate-300 hover:border-slate-500 cursor-pointer"
+              data-type="radiology">Radiology</button>
+          </div>
+
+          <!-- Timeline Container -->
+          <div id="records-timeline-container" class="space-y-4">
+            <!-- Rendered dynamically by App.renderRecordsPage() -->
+          </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- SUB-PAGE 3: RESULT REPORT (#view-result)              -->
+        <!-- ===================================================== -->
+        <div id="view-result" class="sub-view hidden max-w-4xl mx-auto space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-800">
+            <div>
+              <span
+                class="px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[11px] font-bold">Diagnostic
+                Pathology</span>
+              <h2 class="text-2xl font-bold text-white font-heading mt-1">Result - Analysis Report</h2>
+              <p class="text-xs text-slate-400">Synthesized report matching your clinical inputs and prescribed
+                regimens.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="window.print()"
+                class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                <span>Print Report</span>
+              </button>
+              <button onclick="App.switchView('home')"
+                class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                <span>Back to Home</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- User Inputs Card -->
+          <div class="glass-panel p-5 rounded-3xl border border-slate-700/60 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span
+                  class="px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30 text-[10px] font-bold">Tagged</span>
+                <h3 class="text-sm font-bold text-white font-heading">Inputs given by user</h3>
+              </div>
+              <span class="text-[11px] text-slate-400 font-mono" id="result-inputs-timestamp">Recorded Today</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800">
+                <div class="text-[11px] text-slate-400">Blood Pressure (BP)</div>
+                <div id="result-input-bp" class="text-xl font-bold text-teal-300 font-mono mt-0.5">120/80 <span
+                    class="text-xs text-slate-400">mmHg</span></div>
+              </div>
+              <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800">
+                <div class="text-[11px] text-slate-400">Blood Sugar / Glucose</div>
+                <div id="result-input-sugar" class="text-xl font-bold text-emerald-400 font-mono mt-0.5">102 <span
+                    class="text-xs text-slate-400">mg/dL</span></div>
+              </div>
+              <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800">
+                <div class="text-[11px] text-slate-400">Reported Symptoms</div>
+                <div id="result-input-symptoms" class="text-xs font-semibold text-slate-200 mt-1">Borderline post-lunch
+                  fatigue</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Problem & Solution Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="glass-panel p-5 rounded-3xl border border-rose-500/30 bg-rose-950/15 space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+                <h4 class="text-xs font-bold text-rose-300 uppercase tracking-wider">Clinical Problem</h4>
+              </div>
+              <p id="result-problem-text" class="text-xs text-slate-200 leading-relaxed">
+                Mild impaired fasting glucose with well-compensated vascular pressure. Glycemic variability reflects
+                early metabolic insulin resistance.
+              </p>
+            </div>
+
+            <div class="glass-panel p-5 rounded-3xl border border-emerald-500/30 bg-emerald-950/15 space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                <h4 class="text-xs font-bold text-emerald-300 uppercase tracking-wider">Concrete Solution Pathways</h4>
+              </div>
+              <p id="result-solution-text" class="text-xs text-slate-200 leading-relaxed">
+                Maintain low-glycemic complex carbohydrate intake, sustain daily 30-min aerobic walking, and adhere
+                strictly to oral biguanide regimen with meals.
+              </p>
+            </div>
+          </div>
+
+          <!-- Medications List -->
+          <div class="glass-panel p-5 rounded-3xl border border-slate-700/60 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-300 flex items-center justify-center">
+                  <i data-lucide="pill" class="w-4 h-4"></i>
+                </div>
+                <h3 class="text-sm font-bold text-white font-heading">Medications & Dosage Rationale</h3>
+              </div>
+              <span class="text-[11px] text-teal-400 font-mono">Prescription Vault</span>
+            </div>
+            <div id="result-medications-list" class="space-y-3">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Safety Habits Specific to Condition -->
+          <div class="glass-panel p-5 rounded-3xl border border-slate-700/60 space-y-3">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 rounded-lg bg-sky-500/15 text-sky-300 flex items-center justify-center">
+                <i data-lucide="shield-alert" class="w-4 h-4"></i>
+              </div>
+              <h3 class="text-sm font-bold text-white font-heading">Specific Safety Habits for this Condition</h3>
+            </div>
+            <div id="result-safety-habits-text"
+              class="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 text-xs text-slate-300 leading-relaxed">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- SUB-PAGE 4: DAILY MONITORING (#view-monitoring)       -->
+        <!-- ===================================================== -->
+        <div id="view-monitoring" class="sub-view hidden max-w-4xl mx-auto space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-slate-800">
+            <div>
+              <span
+                class="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold">Longitudinal
+                Telemetry</span>
+              <h2 class="text-2xl font-bold text-white font-heading mt-1">Daily Monitoring Page</h2>
+              <p class="text-xs text-slate-400">Day-to-Day Comparison Grid between Previous Day and Today.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="App.openLogTodayModal()"
+                class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-500/20 transition flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>+ Log Today's Reading</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Comparison Grid -->
+          <div class="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-white font-heading flex items-center gap-2">
+                <i data-lucide="arrow-left-right" class="w-4 h-4 text-teal-400"></i>
+                <span>Day-to-Day Vital Signs Comparison</span>
+              </h3>
+              <span class="text-[11px] text-slate-400 font-mono">Synchronized with Profile Records</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Previous Day -->
+              <div class="p-5 rounded-2xl comparison-col-prev space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-700/60">
+                  <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
+                    <span>[ Previous Day ]</span>
+                  </span>
+                  <span id="mon-date-prev" class="text-[11px] text-slate-400 font-mono">Yesterday</span>
+                </div>
+                <div class="space-y-3 text-xs">
+                  <div>
+                    <div class="text-[11px] text-slate-400">Blood Pressure (mmHg)</div>
+                    <div id="mon-bp-prev" class="text-xl font-extrabold text-slate-200 font-mono mt-0.5">128/84 <span
+                        class="text-xs font-normal text-slate-400">mmHg</span></div>
+                  </div>
+                  <div>
+                    <div class="text-[11px] text-slate-400">Fasting Sugar (mg/dL)</div>
+                    <div id="mon-sugar-prev" class="text-xl font-extrabold text-slate-200 font-mono mt-0.5">118 <span
+                        class="text-xs font-normal text-slate-400">mg/dL</span></div>
+                  </div>
+                  <div>
+                    <div class="text-[11px] text-slate-400">Other Symptoms (Yes/No)</div>
+                    <div id="mon-sym-prev" class="text-xs font-semibold text-amber-300 mt-1">Yes - Mild evening headache
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Today -->
+              <div class="p-5 rounded-2xl comparison-col-today space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-teal-500/30">
+                  <span class="text-xs font-bold text-teal-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-400"></i>
+                    <span>[ Today ]</span>
+                  </span>
+                  <span id="mon-date-today" class="text-[11px] text-emerald-400 font-mono font-bold">Today
+                    (Latest)</span>
+                </div>
+                <div class="space-y-3 text-xs">
+                  <div>
+                    <div class="text-[11px] text-slate-400">Blood Pressure (mmHg)</div>
+                    <div id="mon-bp-today" class="text-xl font-extrabold text-teal-300 font-mono mt-0.5">120/80 <span
+                        class="text-xs font-normal text-slate-400">mmHg</span></div>
+                  </div>
+                  <div>
+                    <div class="text-[11px] text-slate-400">Fasting Sugar (mg/dL)</div>
+                    <div id="mon-sugar-today" class="text-xl font-extrabold text-emerald-400 font-mono mt-0.5">102 <span
+                        class="text-xs font-normal text-slate-400">mg/dL</span></div>
+                  </div>
+                  <div>
+                    <div class="text-[11px] text-slate-400">Other Symptoms (Yes/No)</div>
+                    <div id="mon-sym-today" class="text-xs font-semibold text-emerald-300 mt-1">No - Feeling energetic
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progress of Health Box -->
+          <div id="monitoring-progress-box" class="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-white font-heading flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+                <span>Progress of Health Box</span>
+              </h3>
+              <span id="mon-badge-evaluation"
+                class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                Good progress - within safe clinical boundaries
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+              <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-slate-400 font-semibold uppercase">Dynamic Health Stability Index</span>
+                  <span id="mon-stability-percent" class="text-base font-extrabold text-teal-400 font-mono">85%
+                    Stability</span>
+                </div>
+                <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                  <div id="mon-stability-progress-bar"
+                    class="bg-gradient-to-r from-teal-500 to-emerald-400 h-2.5 rounded-full" style="width: 85%"></div>
+                </div>
+                <div class="text-[11px] text-emerald-400 font-medium">
+                  ▲ +4% improvement in glycemic balance compared to previous day
+                </div>
+              </div>
+
+              <div
+                class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 leading-relaxed">
+                <strong class="text-teal-300">Clinical Evaluation Note:</strong>
+                <p id="mon-clinical-note" class="mt-1 text-slate-300">
+                  Patient displays stable vascular compensation. Fasting glucose drop toward optimal baseline suggests
+                  effective pharmacological adherence and appropriate nocturnal rest.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Telemetry Trend Charts -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="p-5 rounded-3xl glass-panel border border-slate-700/60">
+              <div class="text-xs font-semibold text-slate-300 mb-2">Blood Pressure Longitudinal Trend</div>
+              <div class="h-48"><canvas id="chart-blood-pressure"></canvas></div>
+            </div>
+            <div class="p-5 rounded-3xl glass-panel border border-slate-700/60">
+              <div class="text-xs font-semibold text-slate-300 mb-2">Continuous Glucose Pattern (mg/dL)</div>
+              <div class="h-48"><canvas id="chart-glucose-cgm"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- SUB-PAGE 5: SAFETY & HABITS (#view-safety-habits)     -->
+        <!-- ===================================================== -->
+        <div id="view-safety-habits" class="sub-view hidden max-w-4xl mx-auto space-y-6">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+            <div>
+              <span
+                class="px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[11px] font-bold">Preventative
+                Health</span>
+              <h2 class="text-2xl font-bold text-white font-heading mt-1">Safety & Daily Habits</h2>
+              <p class="text-xs text-slate-400">Nutritional therapy and habit guidance tailored to your health
+                requirements.</p>
+            </div>
+          </div>
+
+          <!-- Goal Selector Pills -->
+          <div class="glass-panel p-5 rounded-3xl border border-slate-700/60 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="target" class="w-3.5 h-3.5 text-teal-400"></i>
+                <span>Select Your Health Requirement Goal</span>
+              </h3>
+              <span class="text-[11px] text-teal-400 font-mono font-semibold" id="current-goal-label">Decrease
+                Sugar</span>
+            </div>
+
+            <div class="flex flex-wrap gap-2 pt-1">
+              <button id="pill-req-weight-loss" onclick="App.selectHabitGoal('weight-loss')"
+                class="requirement-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-700 text-slate-300 hover:border-teal-500 transition cursor-pointer">
+                🏃 Weight Loss
+              </button>
+              <button id="pill-req-weight-gain" onclick="App.selectHabitGoal('weight-gain')"
+                class="requirement-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-700 text-slate-300 hover:border-teal-500 transition cursor-pointer">
+                💪 Weight Gain
+              </button>
+              <button id="pill-req-decrease-sugar" onclick="App.selectHabitGoal('decrease-sugar')"
+                class="requirement-pill requirement-pill-active px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 border border-teal-500 text-teal-300 transition cursor-pointer">
+                🩸 Decrease Sugar
+              </button>
+              <button id="pill-req-bp-control" onclick="App.selectHabitGoal('bp-control')"
+                class="requirement-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-700 text-slate-300 hover:border-teal-500 transition cursor-pointer">
+                ❤️ BP Control
+              </button>
+              <button id="pill-req-vitality" onclick="App.selectHabitGoal('vitality')"
+                class="requirement-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-700 text-slate-300 hover:border-teal-500 transition cursor-pointer">
+                ⚡ General Vitality
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Food Guidance -->
+          <div class="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <div class="flex items-center gap-2 pb-2 border-b border-slate-800">
+              <div
+                class="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-300">
+                <i data-lucide="salad" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white font-heading">Food :- What type of food to eat & its benefits
+                  according to your requirement</h3>
+                <div class="text-[11px] text-emerald-400 font-mono">Tailored Nutritional Prescriptions</div>
+              </div>
+            </div>
+            <div id="safety-food-guidance-list" class="space-y-3">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Negative Habit Avoidance List -->
+          <div class="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <div class="flex items-center gap-2 pb-2 border-b border-slate-800">
+              <div
+                class="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-300">
+                <i data-lucide="ban" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white font-heading">Avoid & Other Habits :- Negative Contraindication
+                  List</h3>
+                <div class="text-[11px] text-rose-400 font-mono">High-Yield Risk Prevention</div>
+              </div>
+            </div>
+            <div id="safety-avoid-habits-list" class="space-y-3">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Hydration Tracker -->
+          <div class="glass-panel p-5 rounded-3xl border border-slate-700/60 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-sky-500/15 text-sky-300 flex items-center justify-center">
+                  <i data-lucide="droplets" class="w-4 h-4"></i>
+                </div>
+                <h4 class="text-xs font-bold text-white uppercase tracking-wider">Hydration Therapy Target</h4>
+              </div>
+              <span id="water-progress-label" class="text-xs font-bold text-sky-400 font-mono">1750 / 2800 mL</span>
+            </div>
+
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div id="water-progress-bar" class="bg-gradient-to-r from-sky-500 to-teal-400 h-2 rounded-full"
+                style="width: 62%"></div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs pt-1">
+              <button onclick="App.addWaterGlass()"
+                class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold transition cursor-pointer flex items-center gap-1.5">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>+ Glass (250 mL)</span>
+              </button>
+              <button onclick="App.resetWater()"
+                class="text-slate-400 hover:text-slate-200 transition cursor-pointer text-xs">Reset Daily
+                Intake</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- SUB-PAGE 6: MEDICATIONS (#view-medications)           -->
+        <!-- ===================================================== -->
+        <div id="view-medications" class="sub-view hidden max-w-4xl mx-auto space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-slate-800">
+            <div>
+              <span
+                class="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[11px] font-bold">Pharmacotherapy</span>
+              <h2 class="text-2xl font-bold text-white font-heading mt-1">Active Prescribed Medications</h2>
+              <p class="text-xs text-slate-400">Daily dosage schedules, drug indications, and real-time adherence
+                tracking.</p>
+            </div>
+            <button onclick="App.openAddMedicationModal()"
+              class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-500/20 transition flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>+ Add Prescription</span>
+            </button>
+          </div>
+
+          <!-- Schedule Timeline (Morning, Afternoon, Evening, Night) -->
+          <div id="medications-schedule-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <!-- Populated dynamically by App.renderMedicationsPage() -->
+          </div>
+
+          <!-- Detailed Prescriptions Table -->
+          <div class="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <h3 class="text-sm font-bold text-white font-heading flex items-center gap-2">
+              <i data-lucide="clipboard-list" class="w-4 h-4 text-amber-400"></i>
+              <span>Prescription Regimens & Clinical Rationale</span>
+            </h3>
+            <div id="medications-detailed-list" class="space-y-3">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- SUB-PAGE 7: ABHA & HEALTH ID (#view-abha)             -->
+        <!-- ===================================================== -->
+        <div id="view-abha" class="sub-view hidden max-w-4xl mx-auto space-y-6">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+            <div>
+              <span
+                class="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold"
+                data-i18n="abhaTitle">Government of India • ABDM</span>
+              <h2 class="text-2xl font-bold text-white font-heading mt-1" data-i18n="abhaTitle">Ayushman Bharat Health
+                Account (ABHA)</h2>
+              <p class="text-xs text-slate-400" data-i18n="abhaSubtitle">Unified digital health ID, ABDM gateway
+                connectivity, and FHIR R4 consent manager.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btn-toggle-link-abha" onclick="App.toggleAbhaLinkStatus()"
+                class="px-3.5 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25">
+                <i data-lucide="link-2" class="w-3.5 h-3.5"></i>
+                <span id="btn-toggle-link-abha-text">Linked to ABDM Gateway</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Digital ABHA Card -->
+          <div
+            class="max-w-md mx-auto p-6 rounded-3xl glass-panel-elevated border border-teal-500/40 shadow-2xl space-y-4 relative overflow-hidden"
+            id="digital-abha-card">
+            <div class="absolute -right-12 -top-12 w-40 h-40 bg-teal-500/10 rounded-full blur-2xl pointer-events-none">
+            </div>
+            <div class="flex items-center justify-between pb-3 border-b border-slate-700/80">
+              <div class="flex items-center gap-2">
+                <div
+                  class="w-7 h-7 rounded-lg bg-teal-500 flex items-center justify-center text-white font-extrabold text-xs shadow-md shadow-teal-500/30">
+                  AB
+                </div>
+                <div>
+                  <span class="text-xs font-extrabold text-white tracking-wider" data-i18n="abhaCardTitle">ABHA DIGITAL
+                    HEALTH CARD</span>
+                  <span class="text-[9px] text-teal-400 block font-mono">National Health Authority (NHA)</span>
+                </div>
+              </div>
+              <span id="abha-card-status-badge" class="status-chip status-chip-green px-2.5 py-0.5 text-[10px]"
+                data-i18n="abhaVerified"><span class="dot-glow"></span>● ABHA Active</span>
+            </div>
+
+            <div class="flex items-center gap-4">
+              <div id="abha-card-avatar"
+                class="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center font-bold text-xl text-white shadow-lg shadow-teal-500/20 flex-shrink-0">
+                SR
+              </div>
+              <div class="space-y-0.5 flex-1 min-w-0">
+                <div id="abha-card-name" class="font-bold text-sm text-white truncate">Sravanthi Reddy</div>
+                <div class="flex items-center gap-2">
+                  <div id="abha-card-num" class="text-xs font-mono font-bold text-teal-300 tracking-wider">
+                    91-••••-••••-1234</div>
+                  <button type="button" onclick="App.toggleAbhaMasking()"
+                    class="text-slate-400 hover:text-teal-300 transition cursor-pointer"
+                    title="Mask/Unmask ABHA Number">
+                    <i id="icon-mask-abha" data-lucide="eye" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+                <div id="abha-card-address" class="text-[11px] font-mono text-slate-400 truncate">sravanthi@abdm</div>
+                <div class="text-[10px] text-slate-400">Gender: Female | System: https://healthid.ndhm.gov.in</div>
+              </div>
+            </div>
+
+            <!-- Mock QR Code Box -->
+            <div class="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
+              <div class="text-[10px] text-slate-400 leading-snug pr-3" data-i18n="qrInstruction">
+                Scan with any ABDM-compliant health app to access authorized clinical records.
+              </div>
+              <div class="w-12 h-12 bg-white rounded-lg p-1 flex items-center justify-center flex-shrink-0 shadow-md">
+                <i data-lucide="qr-code" class="w-10 h-10 text-slate-900"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- ABDM & FHIR Interoperability Actions -->
+          <div class="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-white font-heading flex items-center gap-2">
+                  <i data-lucide="arrow-left-right" class="w-4 h-4 text-teal-400"></i>
+                  <span>ABDM FHIR R4 Interoperability Exchange</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Bi-directional health information exchange with ABDM Health
+                  Lockers using standard HL7 FHIR R4 schemas.</p>
+              </div>
+              <span
+                class="px-2.5 py-1 rounded-full text-[10px] font-mono bg-teal-500/15 text-teal-300 border border-teal-500/30">
+                NRCES NDHM R4
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <button id="btn-import-abdm" onclick="App.importMockAbdmBundle()"
+                class="p-4 rounded-2xl bg-slate-900 hover:bg-slate-850 border border-teal-500/30 hover:border-teal-500/60 transition cursor-pointer text-left group">
+                <div class="flex items-center gap-2.5 mb-1.5">
+                  <div
+                    class="w-8 h-8 rounded-xl bg-teal-500/15 text-teal-300 flex items-center justify-center group-hover:scale-105 transition">
+                    <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                  </div>
+                  <span class="font-bold text-xs text-white" data-i18n="btnImportAbdm">Import from ABDM (mock)</span>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                  Pulls bundled sample FHIR R4 Bundle with critical lab markers (HbA1c, glucose, critical potassium 5.9)
+                  into active profile vault.
+                </p>
+              </button>
+
+              <button id="btn-export-fhir-bundle" onclick="App.exportFhirBundle()"
+                class="p-4 rounded-2xl bg-slate-900 hover:bg-slate-850 border border-cyan-500/30 hover:border-cyan-500/60 transition cursor-pointer text-left group">
+                <div class="flex items-center gap-2.5 mb-1.5">
+                  <div
+                    class="w-8 h-8 rounded-xl bg-cyan-500/15 text-cyan-300 flex items-center justify-center group-hover:scale-105 transition">
+                    <i data-lucide="share-2" class="w-4 h-4"></i>
+                  </div>
+                  <span class="font-bold text-xs text-white" data-i18n="btnExportFhir">Export my data as FHIR Bundle
+                    (JSON)</span>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                  Downloads active patient vault as an HL7 FHIR R4 Bundle (type: collection) with Patient, Observation
+                  (LOINC), and MedicationRequest.
+                </p>
+              </button>
+            </div>
+          </div>
+
+          <!-- Consent Management Section -->
+          <div class="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <h3 class="text-sm font-bold text-white font-heading flex items-center gap-2">
+              <i data-lucide="shield" class="w-4 h-4 text-teal-400"></i>
+              <span data-i18n="consentTitle">Active ABDM Consent Artifacts & Health Lockers</span>
+            </h3>
+            <div id="abha-consent-table" class="space-y-2 text-xs">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- SUB-PAGE 8: SETTINGS (#view-settings)                 -->
+        <!-- ===================================================== -->
+        <div id="view-settings" class="sub-view hidden max-w-4xl mx-auto space-y-6">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+            <div>
+              <span
+                class="px-2.5 py-0.5 rounded-full bg-slate-500/15 text-slate-300 border border-slate-500/30 text-[11px] font-bold">Configuration</span>
+              <h2 class="text-2xl font-bold text-white font-heading mt-1">Settings & API Configuration</h2>
+              <p class="text-xs text-slate-400">Manage Gemini API keys, LLM engines, and mock data reset options.</p>
+            </div>
+          </div>
+
+          <!-- Gemini Engine Configuration -->
+          <div class="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-xl bg-teal-500/15 text-teal-300 flex items-center justify-center">
+                  <i data-lucide="sparkles" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white font-heading">Google Gemini Live Vision & LLM Engine</h3>
+                  <div class="text-[11px] text-teal-400 font-mono">Gemini 2.5 Flash / Gemini 1.5 Pro Multimodal Pipeline
+                  </div>
+                </div>
+              </div>
+              <span id="settings-conn-status"
+                class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                Connected
+              </span>
+            </div>
+
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Gemini API Key</label>
+                <div class="flex items-center gap-2">
+                  <input id="settings-gemini-key-input" type="password" placeholder="AIzaSy..."
+                    class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-teal-500 transition">
+                  <button type="button" onclick="App.toggleApiKeyVisibility()"
+                    class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition cursor-pointer"
+                    title="Show/Hide Key">
+                    <i data-lucide="eye" id="icon-toggle-key" class="w-4 h-4"></i>
+                  </button>
+                  <button type="button" onclick="App.saveApiKeyFromSettings()"
+                    class="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md shadow-teal-500/20 transition cursor-pointer">
+                    Save Key
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Active Model</label>
+                <select id="settings-gemini-model-select" onchange="App.handleModelChange(this.value)"
+                  class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500 transition">
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended: Ultra-fast Clinical Ingestion)
+                  </option>
+                  <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Clinical Reasoning & Differential Diagnosis)
+                  </option>
+                </select>
+              </div>
+
+              <div class="pt-1">
+                <button type="button" onclick="App.testGeminiConnection()"
+                  class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 text-xs font-semibold border border-teal-500/40 transition cursor-pointer flex items-center gap-1.5">
+                  <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+                  <span>Test Connection Probe</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Multi-User Isolation & Security Audit -->
+          <div class="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-300 flex items-center justify-center">
+                  <i data-lucide="shield-check" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white font-heading">Multi-User Isolation Regression Audit</h3>
+                  <div class="text-[11px] text-emerald-400 font-mono">Storage Namespace Verification:
+                    meditrack_data_${profileId}</div>
+                </div>
+              </div>
+              <span id="isolation-audit-badge"
+                class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                0 Leaks Detected
+              </span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Cryptographic and localStorage isolation auditor: verifies that all vitals, lab reports, prescriptions,
+              and chat history strictly isolate under <code>meditrack_data_${profileId}</code> without cross-profile
+              leakage.
+            </p>
+            <div class="flex items-center gap-3">
+              <button type="button" onclick="App.runIsolationCheck()"
+                class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-md transition cursor-pointer flex items-center gap-1.5">
+                <i data-lucide="scan" class="w-3.5 h-3.5"></i>
+                <span>Run Cross-Profile Isolation Regression Check</span>
+              </button>
+            </div>
+            <div id="isolation-audit-results"
+              class="hidden p-3 rounded-2xl bg-slate-900/90 border border-slate-800 text-[11px] font-mono text-emerald-400">
+            </div>
+          </div>
+
+          <!-- Localization & Interface Preferences -->
+          <div class="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-xl bg-teal-500/15 text-teal-300 flex items-center justify-center">
+                <i data-lucide="globe" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white font-heading" data-i18n="languageSelectLabel">System Language &
+                  Localization</h3>
+                <div class="text-[11px] text-teal-400 font-mono">Bilingual Translation: EN | తెలుగు (Telugu) | हिंदी
+                  (Hindi)</div>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1" data-i18n="languageSelectLabel">Active
+                Application Language</label>
+              <select id="settings-lang-select" onchange="App.setLanguage(this.value)"
+                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500 transition">
+                <option value="en">English (Default)</option>
+                <option value="te">తెలుగు (Telugu - Noto Sans Telugu)</option>
+                <option value="hi">हिंदी (Hindi - Noto Sans Devanagari)</option>
+              </select>
+              <p class="text-[11px] text-slate-400 mt-1.5">
+                Switching instantly re-translates all navigation, forms, summaries, and speech recognition without page
+                reload.
+              </p>
+            </div>
+          </div>
+
+          <!-- Reset & Data Management (One-Click Wipe & Full JSON Export) -->
+          <div class="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-xl bg-rose-500/15 text-rose-300 flex items-center justify-center">
+                  <i data-lucide="database" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white font-heading" data-i18n="storageTitle">Patient Health Vault &
+                    Storage Management</h3>
+                  <div class="text-[11px] text-slate-400 font-mono">localStorage Encrypted Client Vault</div>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Manage your persistent patient vault. Export a full multi-profile archive or execute a complete
+              cryptographic wipe.
+            </p>
+
+            <div class="flex flex-wrap items-center gap-3 pt-1">
+              <button id="btn-wipe-all-data" onclick="App.wipeAllData()"
+                class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition cursor-pointer flex items-center gap-1.5">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <span data-i18n="btnWipeAll">Delete All Data (One-Click Wipe)</span>
+              </button>
+              <button id="btn-export-all-data" onclick="App.exportAllDataJson()"
+                class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span data-i18n="btnExportVault">Export All Data (JSON)</span>
+              </button>
+              <button onclick="App.resetDemoData()"
+                class="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-400 border border-slate-700 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                <span data-i18n="btnResetDemo">Reset Demo Profiles</span>
+              </button>
+              <button onclick="App.runGuidedDemo()" id="btn-run-guided-demo-settings"
+                class="px-3.5 py-2 rounded-xl bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/40 text-xs font-bold transition cursor-pointer flex items-center gap-1.5">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                <span>Run Guided Demo</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Privacy Notice & Local Data Sovereignty -->
+          <div class="glass-panel p-6 rounded-3xl border border-teal-500/30 bg-teal-950/20 space-y-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="lock" class="w-4 h-4 text-teal-400"></i>
+              <h3 class="text-sm font-bold text-teal-200 font-heading" data-i18n="privacyTitle">Privacy Notice & Local
+                Data Sovereignty</h3>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed" data-i18n="privacyNotice">
+              MediTrack AI operates on a strictly client-first architecture. All health documents, lab biomarkers,
+              medications, and chat history are stored solely in your device's browser localStorage vault. No health
+              data is stored on remote servers. Images and clinical queries are transmitted directly to Google Gemini
+              via encrypted TLS only when you initiate OCR or ask questions. You maintain 100% data sovereignty and can
+              permanently purge all data anytime using the one-click wipe button above.
+            </p>
+          </div>
+        </div>
+
+        <!-- ===================================================== -->
+        <!-- SUB-PAGE 9: ARCHITECTURE (#view-architecture)         -->
+        <!-- ===================================================== -->
+        <div id="view-architecture" class="sub-view hidden max-w-5xl mx-auto space-y-6">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+            <div>
+              <span
+                class="px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold"
+                data-i18n="archTitle">System Design & Interoperability</span>
+              <h2 class="text-2xl font-bold text-white font-heading mt-1" data-i18n="archTitle">Architecture Blueprint &
+                Clinical Data Pipeline</h2>
+              <p class="text-xs text-slate-400" data-i18n="archSubtitle">Technical specification: Upload ->
+                Pre-processing -> Gemini Vision OCR -> Human Verification -> FHIR Mapper -> Vault -> Clinical Views.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span
+                class="px-2.5 py-1 rounded-full text-[10px] font-mono bg-teal-500/15 text-teal-300 border border-teal-500/30">
+                HL7 FHIR R4 & ABDM Certified
+              </span>
+            </div>
+          </div>
+
+          <!-- Master Interactive Architecture SVG Pipeline Diagram -->
+          <div class="glass-panel p-6 rounded-3xl border border-teal-500/30 overflow-x-auto shadow-2xl relative">
+            <div class="min-w-[840px] text-slate-200">
+              <svg viewBox="0 0 960 480" class="w-full h-auto select-none" style="font-family: inherit;">
+                <defs>
+                  <linearGradient id="grad-teal" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#0d9488" />
+                    <stop offset="100%" stop-color="#14b8a6" />
+                  </linearGradient>
+                  <linearGradient id="grad-indigo" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#4f46e5" />
+                    <stop offset="100%" stop-color="#6366f1" />
+                  </linearGradient>
+                  <linearGradient id="grad-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#059669" />
+                    <stop offset="100%" stop-color="#10b981" />
+                  </linearGradient>
+                  <linearGradient id="grad-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#d97706" />
+                    <stop offset="100%" stop-color="#f59e0b" />
+                  </linearGradient>
+                  <linearGradient id="grad-rose" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#e11d48" />
+                    <stop offset="100%" stop-color="#f43f5e" />
+                  </linearGradient>
+                  <filter id="glow-teal" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6"
+                    orient="auto-start-reverse">
+                    <path d="M 0 1 L 8 5 L 0 9 z" fill="#2dd4bf" />
+                  </marker>
+                  <marker id="arrow-amber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6"
+                    orient="auto-start-reverse">
+                    <path d="M 0 1 L 8 5 L 0 9 z" fill="#fbbf24" />
+                  </marker>
+                  <marker id="arrow-indigo" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6"
+                    orient="auto-start-reverse">
+                    <path d="M 0 1 L 8 5 L 0 9 z" fill="#818cf8" />
+                  </marker>
+                </defs>
+
+                <!-- Flow Connectors / Curved Paths -->
+                <path d="M 120 110 L 170 110" stroke="#2dd4bf" stroke-width="2.5" marker-end="url(#arrow)"
+                  class="arch-svg-path" />
+                <path d="M 310 110 L 360 110" stroke="#2dd4bf" stroke-width="2.5" marker-end="url(#arrow)"
+                  class="arch-svg-path" />
+                <path d="M 520 110 L 570 110" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#arrow-amber)"
+                  class="arch-svg-path" />
+                <path d="M 730 110 L 780 110" stroke="#2dd4bf" stroke-width="2.5" marker-end="url(#arrow)"
+                  class="arch-svg-path" />
+
+                <!-- Downward path to Storage Vault -->
+                <path d="M 855 160 L 855 240 L 730 270" stroke="#2dd4bf" stroke-width="2.5" marker-end="url(#arrow)"
+                  class="arch-svg-path" />
+
+                <!-- Reverse/Distribution path from Vault to UI Views -->
+                <path d="M 570 300 L 480 300" stroke="#818cf8" stroke-width="2.5" marker-end="url(#arrow-indigo)"
+                  class="arch-svg-path" />
+                <path d="M 280 300 L 210 300" stroke="#818cf8" stroke-width="2.5" marker-end="url(#arrow-indigo)"
+                  class="arch-svg-path" />
+
+                <!-- Gateway Interconnects -->
+                <path d="M 650 340 L 650 390" stroke="#2dd4bf" stroke-width="2" stroke-dasharray="4" />
+                <path d="M 380 340 L 380 390" stroke="#818cf8" stroke-width="2" stroke-dasharray="4" />
+
+                <!-- Node 1: Input & Intake -->
+                <g class="arch-svg-node" transform="translate(10, 60)">
+                  <rect width="110" height="100" rx="18" fill="#0f172a" stroke="#0d9488" stroke-width="1.8" />
+                  <circle cx="55" cy="35" r="18" fill="url(#grad-teal)" />
+                  <text x="55" y="40" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">📄</text>
+                  <text x="55" y="75" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="bold">1.
+                    Upload</text>
+                  <text x="55" y="90" text-anchor="middle" fill="#94a3b8" font-size="9">PNG / PDF / Camera</text>
+                </g>
+
+                <!-- Node 2: Pre-Processing -->
+                <g class="arch-svg-node" transform="translate(170, 60)">
+                  <rect width="140" height="100" rx="18" fill="#0f172a" stroke="#14b8a6" stroke-width="1.8" />
+                  <circle cx="70" cy="35" r="18" fill="#1e293b" stroke="#14b8a6" stroke-width="1.5" />
+                  <text x="70" y="40" text-anchor="middle" fill="#2dd4bf" font-size="13" font-weight="bold">⚙️</text>
+                  <text x="70" y="75" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="bold">2.
+                    Pre-processing</text>
+                  <text x="70" y="90" text-anchor="middle" fill="#94a3b8" font-size="9">Base64 • Canvas Norm</text>
+                </g>
+
+                <!-- Node 3: Gemini Vision OCR -->
+                <g class="arch-svg-node" transform="translate(360, 50)">
+                  <rect width="160" height="120" rx="20" fill="#090d16" stroke="#2dd4bf" stroke-width="2.2"
+                    filter="url(#glow-teal)" />
+                  <circle cx="80" cy="35" r="20" fill="url(#grad-teal)" />
+                  <text x="80" y="41" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">✨</text>
+                  <text x="80" y="78" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">3. Gemini
+                    Vision OCR</text>
+                  <text x="80" y="94" text-anchor="middle" fill="#2dd4bf" font-size="10"
+                    font-weight="bold">gemini-2.5-flash</text>
+                  <text x="80" y="110" text-anchor="middle" fill="#94a3b8" font-size="9">JSON Schema Extraction</text>
+                </g>
+
+                <!-- Node 4: Human-in-the-Loop Verification -->
+                <g class="arch-svg-node" transform="translate(570, 55)">
+                  <rect width="160" height="110" rx="20" fill="#0f172a" stroke="#f59e0b" stroke-width="2" />
+                  <circle cx="80" cy="35" r="18" fill="url(#grad-amber)" />
+                  <text x="80" y="41" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">👤</text>
+                  <text x="80" y="76" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="bold">4.
+                    Human-in-the-Loop</text>
+                  <text x="80" y="92" text-anchor="middle" fill="#f8fafc" font-size="10">Amber Cell Review</text>
+                  <text x="80" y="106" text-anchor="middle" fill="#94a3b8" font-size="9">Doctor Edit Overrides</text>
+                </g>
+
+                <!-- Node 5: FHIR Mapper -->
+                <g class="arch-svg-node" transform="translate(780, 60)">
+                  <rect width="150" height="100" rx="18" fill="#0f172a" stroke="#10b981" stroke-width="1.8" />
+                  <circle cx="75" cy="35" r="18" fill="url(#grad-emerald)" />
+                  <text x="75" y="41" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">🏥</text>
+                  <text x="75" y="75" text-anchor="middle" fill="#34d399" font-size="11" font-weight="bold">5. FHIR R4
+                    Mapper</text>
+                  <text x="75" y="90" text-anchor="middle" fill="#94a3b8" font-size="9">LOINC • RxNorm • SNOMED</text>
+                </g>
+
+                <!-- Node 6: LocalStorage Vault (Per-Profile Isolation) -->
+                <g class="arch-svg-node" transform="translate(570, 240)">
+                  <rect width="160" height="110" rx="20" fill="#090d16" stroke="#059669" stroke-width="2.2" />
+                  <circle cx="80" cy="35" r="18" fill="url(#grad-emerald)" />
+                  <text x="80" y="41" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">🔒</text>
+                  <text x="80" y="75" text-anchor="middle" fill="#6ee7b7" font-size="11" font-weight="bold">6. Client
+                    Health Vault</text>
+                  <text x="80" y="90" text-anchor="middle" fill="#ffffff" font-size="10">meditrack_data_${id}</text>
+                  <text x="80" y="104" text-anchor="middle" fill="#94a3b8" font-size="9">Zero Leakage Isolation</text>
+                </g>
+
+                <!-- Node 7: Clinical Views & Actions -->
+                <g class="arch-svg-node" transform="translate(280, 245)">
+                  <rect width="200" height="105" rx="20" fill="#0f172a" stroke="#6366f1" stroke-width="2" />
+                  <circle cx="100" cy="35" r="18" fill="url(#grad-indigo)" />
+                  <text x="100" y="41" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">📊</text>
+                  <text x="100" y="75" text-anchor="middle" fill="#a5b4fc" font-size="11" font-weight="bold">7. Clinical
+                    Views & Alerts</text>
+                  <text x="100" y="90" text-anchor="middle" fill="#f8fafc" font-size="10">Timeline • CGM • Triage
+                    Alert</text>
+                  <text x="100" y="104" text-anchor="middle" fill="#94a3b8" font-size="9">Doctor PDF Export</text>
+                </g>
+
+                <!-- Node 8: Emergency Guardrail -->
+                <g class="arch-svg-node" transform="translate(50, 250)">
+                  <rect width="160" height="95" rx="18" fill="#0f172a" stroke="#f43f5e" stroke-width="2" />
+                  <circle cx="80" cy="32" r="16" fill="url(#grad-rose)" />
+                  <text x="80" y="38" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="bold">🚨</text>
+                  <text x="80" y="68" text-anchor="middle" fill="#fda4af" font-size="11" font-weight="bold">Safety
+                    Guardrail</text>
+                  <text x="80" y="82" text-anchor="middle" fill="#f8fafc" font-size="9">Red-Flag Triage
+                    (&lt;10ms)</text>
+                </g>
+
+                <!-- Node 9: ABDM Health Locker Layer -->
+                <g class="arch-svg-node" transform="translate(550, 395)">
+                  <rect width="200" height="70" rx="16" fill="#134e4a" stroke="#2dd4bf" stroke-width="1.5" />
+                  <text x="100" y="28" text-anchor="middle" fill="#2dd4bf" font-size="11" font-weight="bold">ABDM
+                    Gateway & Health Locker</text>
+                  <text x="100" y="45" text-anchor="middle" fill="#ffffff" font-size="10">14-Digit ABHA ID • Consent
+                    Manager</text>
+                  <text x="100" y="60" text-anchor="middle" fill="#a7f3d0" font-size="9">Bundle Import / Export</text>
+                </g>
+
+                <!-- Node 10: Localization Engine Layer -->
+                <g class="arch-svg-node" transform="translate(280, 395)">
+                  <rect width="200" height="70" rx="16" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.5" />
+                  <text x="100" y="28" text-anchor="middle" fill="#a5b4fc" font-size="11"
+                    font-weight="bold">Localization & Speech Layer</text>
+                  <text x="100" y="45" text-anchor="middle" fill="#ffffff" font-size="10">EN | తెలుగు | हिंदी (Noto
+                    Sans)</text>
+                  <text x="100" y="60" text-anchor="middle" fill="#c7d2fe" font-size="9">SpeechRecognition &
+                    Synthesis</text>
+                </g>
+              </svg>
+            </div>
+
+            <div
+              class="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+              <div class="flex items-center gap-3">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-teal-400"></span>
+                  Ingestion & OCR</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                  Human Validation</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  FHIR Vault</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+                  Telemetry & Triage</span>
+              </div>
+              <div class="font-mono text-[11px] text-teal-300">
+                Data Sovereignty: 100% Client-Side LocalStorage
+              </div>
+            </div>
+          </div>
+
+          <!-- Technical Architecture Specification Breakdown -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div class="glass-panel p-5 rounded-3xl border border-teal-500/30 space-y-2">
+              <div class="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-300 flex items-center justify-center font-bold">1
+              </div>
+              <h3 class="font-bold text-sm text-white">Multimodal Gemini Vision OCR</h3>
+              <p class="text-slate-300 leading-relaxed">
+                Images/PDFs are converted to base64 and streamed to <code>gemini-2.5-flash</code> with strict JSON
+                schemas. Biomarkers, reference ranges, and doctor notes extract in under 1.5 seconds.
+              </p>
+            </div>
+
+            <div class="glass-panel p-5 rounded-3xl border border-amber-500/30 space-y-2">
+              <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold">
+                2</div>
+              <h3 class="font-bold text-sm text-white">Human-in-the-Loop Confidence</h3>
+              <p class="text-slate-300 leading-relaxed">
+                Every extracted biomarker receives an OCR confidence score. Values below 95% threshold are flagged in
+                amber in the interactive modal for clinician or patient correction before storage.
+              </p>
+            </div>
+
+            <div class="glass-panel p-5 rounded-3xl border border-emerald-500/30 space-y-2">
+              <div
+                class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold">
+                3</div>
+              <h3 class="font-bold text-sm text-white">ABDM FHIR R4 Interoperability</h3>
+              <p class="text-slate-300 leading-relaxed">
+                Normalized data maps to HL7 FHIR R4 resources: <code>Patient</code> (ABHA number),
+                <code>Observation</code> (LOINC), <code>MedicationRequest</code> (RxNorm), and <code>Bundle</code>
+                (collection) for Ayushman Bharat exchange.
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Floating Upload FAB (Mobile Only) -->
+      <button id="mobile-upload-fab" onclick="document.getElementById('home-file-input').click()"
+        class="mobile-fab md:hidden" aria-label="Upload document" title="Upload health document">
+        <i data-lucide="plus" class="w-6 h-6"></i>
+      </button>
+
+      <!-- Mobile Bottom Tab Bar (<768px) -->
+      <nav id="mobile-bottom-tabs" class="mobile-tab-bar md:hidden" aria-label="Mobile Bottom Navigation">
+        <button onclick="App.switchView('home')" class="mobile-tab-btn active" id="tab-mob-home">
+          <i data-lucide="home" class="w-5 h-5 mb-0.5"></i>
+          <span>Home</span>
+        </button>
+        <button onclick="App.switchView('records')" class="mobile-tab-btn" id="tab-mob-records">
+          <i data-lucide="folder-clock" class="w-5 h-5 mb-0.5"></i>
+          <span>Records</span>
+        </button>
+        <button onclick="App.switchView('monitoring')" class="mobile-tab-btn" id="tab-mob-monitoring">
+          <i data-lucide="activity" class="w-5 h-5 mb-0.5"></i>
+          <span>Vitals</span>
+        </button>
+        <button onclick="App.switchView('medications')" class="mobile-tab-btn" id="tab-mob-medications">
+          <i data-lucide="pill" class="w-5 h-5 mb-0.5"></i>
+          <span>Meds</span>
+        </button>
+        <button onclick="App.toggleMobileMenu()" class="mobile-tab-btn" id="tab-mob-more">
+          <i data-lucide="more-horizontal" class="w-5 h-5 mb-0.5"></i>
+          <span>More</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 1: ADD PERSON / PROFILE (#modal-add-person)         -->
+  <!-- ========================================================= -->
+  <div id="modal-add-person"
+    class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-clinical-950/90 backdrop-blur-md hidden"
+    role="dialog" aria-modal="true" aria-labelledby="modal-add-person-title">
+    <div
+      class="w-full max-w-md glass-panel-elevated p-6 rounded-3xl border border-slate-700 shadow-2xl space-y-4 animate-slide-down">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-700/80">
+        <div class="flex items-center gap-2.5">
+          <div
+            class="w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-300">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 id="modal-add-person-title" class="text-base font-bold text-white font-heading">Add Family Member</h3>
+            <div class="text-[11px] text-slate-400">Creates an isolated health profile in this vault</div>
+          </div>
+        </div>
+        <button onclick="App.closeAddPersonModal()" class="p-1 text-slate-400 hover:text-white cursor-pointer"
+          aria-label="Close modal">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="App.handleAddPersonSubmit(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Full Name *</label>
+          <input id="modal-person-name" type="text" required placeholder="e.g. Ramesh Kumar"
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Age *</label>
+            <input id="modal-person-age" type="number" min="1" max="120" required placeholder="65"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200 font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Gender</label>
+            <select id="modal-person-gender"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Relation</label>
+            <select id="modal-person-relation"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
+              <option value="Father">Father</option>
+              <option value="Mother">Mother</option>
+              <option value="Spouse">Spouse</option>
+              <option value="Child">Child</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Blood Group</label>
+            <select id="modal-person-blood"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono">
+              <option value="B+">B+</option>
+              <option value="O+">O+</option>
+              <option value="A+">A+</option>
+              <option value="AB+">AB+</option>
+              <option value="O-">O-</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit"
+          class="w-full py-2.5 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold text-xs tracking-wide shadow-lg shadow-teal-500/25 transition mt-2 cursor-pointer">
+          Create Patient Profile
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 2: HUMAN-IN-THE-LOOP OCR REVIEW (#modal-review)     -->
+  <!-- ========================================================= -->
+  <div id="modal-review"
+    class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-clinical-950/90 backdrop-blur-md hidden"
+    role="dialog" aria-modal="true" aria-labelledby="modal-review-title">
+    <div
+      class="w-full max-w-2xl glass-panel-elevated p-6 rounded-3xl border border-slate-700 shadow-2xl space-y-4 animate-slide-down max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-700/80">
+        <div class="flex items-center gap-2.5">
+          <div
+            class="w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-300">
+            <i data-lucide="check-square" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 id="modal-review-title" class="text-base font-bold text-white font-heading">Review & Validate Extracted
+              Data</h3>
+            <div class="text-[11px] text-slate-400">Human-in-the-loop verification before saving to health vault</div>
+          </div>
+        </div>
+        <button onclick="App.closeReviewModal()" class="p-1 text-slate-400 hover:text-white cursor-pointer"
+          aria-label="Close modal">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <!-- Metadata Header Bar -->
+        <div
+          class="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span id="review-doc-type-badge"
+              class="px-2.5 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30 text-[10px] font-bold">Diagnostic
+              Lab Report</span>
+            <span id="review-doc-facility" class="font-semibold text-slate-200 text-xs">Apollo Diagnostics</span>
+          </div>
+          <div class="flex items-center gap-3 text-[11px] text-slate-400 font-mono">
+            <span id="review-doc-date">Today</span>
+            <span id="review-doc-legibility" class="text-emerald-400 font-bold">96% Legibility</span>
+          </div>
+        </div>
+
+        <!-- Drug Safety & Interaction Alerts (if any) -->
+        <div id="review-safety-alerts-container"
+          class="hidden p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/50 space-y-2">
+          <div class="flex items-center gap-2 text-amber-300 font-bold text-xs">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400"></i>
+            <span>Pharmacotherapy Safety Warnings Detected</span>
+          </div>
+          <div id="review-safety-alerts-list" class="space-y-1.5 text-[11px] text-amber-200">
+            <!-- Dynamic alerts -->
+          </div>
+        </div>
+
+        <!-- Plain Language 8th-Grade Synthesis -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+            <div class="font-bold text-teal-300 text-xs flex items-center gap-1.5">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+              <span>What This Report Says (Plain Language)</span>
+            </div>
+            <div id="review-doc-summary" class="text-slate-300 leading-relaxed text-[11px]">
+              Metabolic panel demonstrating glycemic exposure and lipid elevation.
+            </div>
+          </div>
+          <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+            <div class="font-bold text-rose-300 text-xs flex items-center gap-1.5">
+              <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+              <span>What Is Abnormal & What It Means</span>
+            </div>
+            <div id="review-doc-abnormal" class="text-slate-300 leading-relaxed text-[11px]">
+              HbA1c 7.6% and LDL-C 154 mg/dL exceed normal targets.
+            </div>
+          </div>
+        </div>
+
+        <!-- Questions to Ask Your Doctor -->
+        <div class="p-3 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1">
+          <div class="font-bold text-amber-300 text-[11px] flex items-center gap-1.5">
+            <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+            <span>Questions to Ask Your Doctor at Next Visit</span>
+          </div>
+          <ul id="review-doc-questions" class="list-disc list-inside text-[11px] text-slate-300 space-y-0.5">
+            <!-- Dynamic questions -->
+          </ul>
+        </div>
+
+        <!-- Extracted Biomarkers Table (Editable with Low-Confidence Amber Cells) -->
+        <div id="review-biomarkers-section" class="border border-slate-800 rounded-2xl overflow-hidden">
+          <div
+            class="bg-slate-900/90 px-4 py-2 text-[11px] font-bold text-teal-300 border-b border-slate-800 flex justify-between items-center">
+            <span>Extracted Biomarkers (Human-in-the-Loop Editable)</span>
+            <span class="text-[10px] text-slate-400 font-normal">Amber indicates low confidence (&lt;75%)</span>
+          </div>
+          <div id="review-biomarkers-table" class="divide-y divide-slate-800 bg-slate-950/60 max-h-48 overflow-y-auto">
+            <!-- Populated dynamically with editable inputs -->
+          </div>
+        </div>
+
+        <!-- Extracted Medications Table (Editable) -->
+        <div id="review-medications-section" class="hidden border border-slate-800 rounded-2xl overflow-hidden">
+          <div
+            class="bg-slate-900/90 px-4 py-2 text-[11px] font-bold text-amber-300 border-b border-slate-800 flex justify-between items-center">
+            <span>Extracted Prescriptions & Dosage Regimens</span>
+            <span class="text-[10px] text-slate-400 font-normal">Verify before adding to active meds</span>
+          </div>
+          <div id="review-medications-table" class="divide-y divide-slate-800 bg-slate-950/60 max-h-44 overflow-y-auto">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+        <button type="button" onclick="App.closeReviewModal()"
+          class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+          Cancel
+        </button>
+        <button type="button" onclick="App.confirmReviewSave()"
+          class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md shadow-teal-500/20 cursor-pointer">
+          Confirm & Save to Vault
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 3: COMMAND PALETTE (#command-palette-modal)         -->
+  <!-- ========================================================= -->
+  <div id="command-palette-modal" class="command-palette-backdrop hidden" onclick="App.closeCommandPalette(event)"
+    role="dialog" aria-modal="true" aria-label="Command palette">
+    <div
+      class="w-full max-w-lg glass-panel-elevated p-4 rounded-3xl border border-slate-700 shadow-2xl space-y-3 animate-slide-down"
+      onclick="event.stopPropagation()">
+      <div class="relative flex items-center">
+        <i data-lucide="command" class="w-4 h-4 text-teal-400 absolute left-3"></i>
+        <input id="command-palette-input" type="text"
+          placeholder="Type a command or navigate... (e.g. 'vitals', 'meds')"
+          oninput="App.filterCommandPalette(this.value)"
+          class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-teal-500 font-medium">
+      </div>
+      <div id="command-palette-items" class="space-y-1 max-h-64 overflow-y-auto text-xs">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 4: LOG TODAY'S VITAL READING (#modal-log-today)     -->
+  <!-- ========================================================= -->
+  <div id="modal-log-today"
+    class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-clinical-950/90 backdrop-blur-md hidden"
+    role="dialog" aria-modal="true" aria-labelledby="modal-log-title">
+    <div
+      class="w-full max-w-md glass-panel-elevated p-6 rounded-3xl border border-slate-700 shadow-2xl space-y-4 animate-slide-down">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-700/80">
+        <div class="flex items-center gap-2.5">
+          <div
+            class="w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-300">
+            <i data-lucide="activity" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 id="modal-log-title" class="text-base font-bold text-white font-heading">Log Today's Vital Signs</h3>
+            <div class="text-[11px] text-slate-400">Updates [ Today ] column and health stability score</div>
+          </div>
+        </div>
+        <button onclick="App.closeLogTodayModal()" class="p-1 text-slate-400 hover:text-white cursor-pointer"
+          aria-label="Close modal">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="App.handleManualLogSubmit(event)" class="space-y-3.5">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Systolic BP (mmHg)</label>
+            <input id="modal-log-sys" type="number" min="70" max="230" required value="120"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Diastolic BP (mmHg)</label>
+            <input id="modal-log-dia" type="number" min="40" max="150" required value="80"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Fasting Blood Sugar (mg/dL)</label>
+          <input id="modal-log-sugar" type="number" min="40" max="450" required value="102"
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Other Symptoms / Context</label>
+          <input id="modal-log-sym" type="text" placeholder="e.g. No headache, good morning energy"
+            value="No - Energy normal"
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200">
+        </div>
+
+        <button type="submit"
+          class="w-full py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold text-xs tracking-wide shadow-lg shadow-teal-500/25 transition mt-2 cursor-pointer">
+          Save Reading to Today's Record
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- EXECUTIVE AI SUMMARY SLIDE-OVER DRAWER (#drawer-ai-summary) -->
+  <!-- ========================================================= -->
+  <div id="drawer-ai-summary-backdrop" onclick="App.closeAiSummaryDrawer()"
+    class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 transition-opacity"></div>
+
+  <aside id="drawer-ai-summary"
+    class="fixed top-0 right-0 bottom-0 w-full max-w-lg glass-panel-elevated border-l border-slate-700/80 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col"
+    aria-label="Executive AI Synthesis Drawer">
+    <!-- Drawer Header -->
+    <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div
+          class="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-cyan-400 flex items-center justify-center text-white shadow-md shadow-teal-500/20">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-extrabold text-white font-heading">Executive AI Multi-Report Synthesis</h2>
+          <span class="text-[10px] text-teal-400 font-mono">Longitudinal Diagnostic Intelligence</span>
+        </div>
+      </div>
+      <button onclick="App.closeAiSummaryDrawer()"
+        class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+        aria-label="Close Summary Drawer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Drawer Body -->
+    <div class="flex-1 overflow-y-auto p-5 space-y-4" id="drawer-ai-summary-content">
+      <!-- Dynamic Content Rendered by App.generateAiSummary() -->
+    </div>
+
+    <!-- Drawer Footer Actions -->
+    <div class="p-4 border-t border-slate-800 flex items-center justify-between gap-3 bg-slate-900/50">
+      <button onclick="App.copyAiSummary()"
+        class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer">
+        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+        <span id="btn-copy-summary-text">Copy Summary</span>
+      </button>
+      <button onclick="window.print()"
+        class="flex-1 py-2 px-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md shadow-teal-500/20 transition flex items-center justify-center gap-1.5 cursor-pointer">
+        <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+        <span>Print Brief</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none" aria-live="polite"></div>
+
+  <!-- Application Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/fhir.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/gemini.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>
