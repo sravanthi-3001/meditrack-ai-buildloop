@@ -41,6 +41,61 @@ const App = {
       DATA_PREFIX: 'meditrack_data_'
     },
 
+    CLEAN_PRIMARY_PROFILE: {
+      id: 'prof_primary',
+      name: 'Primary User',
+      relation: 'Self',
+      age: 35,
+      gender: 'Other',
+      bloodGroup: 'O+ Positive',
+      weight: 65,
+      height: 168,
+      avatar: 'PU',
+      abhaId: '91-4523-8821-1234',
+      abhaAddress: 'user@abdm',
+      abhaLinked: false,
+      isPrimary: true,
+      stabilityScore: null,
+      stabilityTrend: 'No telemetry logged yet',
+      monitoringEnabled: true,
+      allergies: []
+    },
+
+    CLEAN_PRIMARY_DATA: {
+      schemaVersion: 2,
+      profile: {
+        id: 'prof_primary',
+        name: 'Primary User',
+        relation: 'Self',
+        age: 35,
+        gender: 'Other',
+        bloodGroup: 'O+ Positive',
+        weight: 65,
+        height: 168,
+        avatar: 'PU',
+        abhaId: '91-4523-8821-1234',
+        abhaAddress: 'user@abdm',
+        abhaLinked: false,
+        isPrimary: true,
+        stabilityScore: null,
+        stabilityTrend: 'No telemetry logged yet',
+        monitoringEnabled: true,
+        allergies: []
+      },
+      vitalsLogs: [],
+      dailyLogs: [],
+      reminders: [],
+      documents: [],
+      medications: [],
+      chatHistory: [],
+      chatMessages: [],
+      result: null,
+      habitGoal: 'balanced',
+      waterIntakeMl: 0,
+      waterTargetMl: 2500,
+      fhir: {}
+    },
+
     DEFAULT_PRIMARY_PROFILE: {
       id: 'prof_primary',
       name: 'Sravanthi Reddy',
@@ -181,10 +236,30 @@ const App = {
     },
 
     init: function () {
+      const isDemoActive = localStorage.getItem('meditrack_is_demo') === 'true';
       if (!localStorage.getItem(this.KEYS.PROFILES_LIST)) {
-        localStorage.setItem(this.KEYS.PROFILES_LIST, JSON.stringify([this.DEFAULT_PRIMARY_PROFILE]));
-        localStorage.setItem(this.KEYS.DATA_PREFIX + 'prof_primary', JSON.stringify(this.DEFAULT_PRIMARY_DATA));
+        const initialProfile = isDemoActive ? this.DEFAULT_PRIMARY_PROFILE : this.CLEAN_PRIMARY_PROFILE;
+        const initialData = isDemoActive ? this.DEFAULT_PRIMARY_DATA : this.CLEAN_PRIMARY_DATA;
+        localStorage.setItem(this.KEYS.PROFILES_LIST, JSON.stringify([initialProfile]));
+        localStorage.setItem(this.KEYS.DATA_PREFIX + 'prof_primary', JSON.stringify(initialData));
         localStorage.setItem(this.KEYS.ACTIVE_PROFILE_ID, 'prof_primary');
+      } else if (!isDemoActive && !localStorage.getItem('meditrack_user_uploaded')) {
+        // Ensure that a newly opened session without explicit demo mode does not carry unedited auto-seeded mock records
+        const curData = localStorage.getItem(this.KEYS.DATA_PREFIX + 'prof_primary');
+        if (curData) {
+          try {
+            const parsed = JSON.parse(curData);
+            if (parsed && parsed.documents && parsed.documents.some(d => d.id === 'doc_101')) {
+              localStorage.setItem(this.KEYS.DATA_PREFIX + 'prof_primary', JSON.stringify(this.CLEAN_PRIMARY_DATA));
+              const list = this.getProfilesList();
+              const pIdx = list.findIndex(p => p.id === 'prof_primary');
+              if (pIdx !== -1) {
+                list[pIdx] = this.CLEAN_PRIMARY_PROFILE;
+                localStorage.setItem(this.KEYS.PROFILES_LIST, JSON.stringify(list));
+              }
+            }
+          } catch(e) {}
+        }
       }
 
       const profiles = this.getProfilesList();
@@ -197,9 +272,9 @@ const App = {
     getProfilesList: function () {
       try {
         const raw = localStorage.getItem(this.KEYS.PROFILES_LIST);
-        return raw ? JSON.parse(raw) : [this.DEFAULT_PRIMARY_PROFILE];
+        return raw ? JSON.parse(raw) : [this.CLEAN_PRIMARY_PROFILE];
       } catch (e) {
-        return [this.DEFAULT_PRIMARY_PROFILE];
+        return [this.CLEAN_PRIMARY_PROFILE];
       }
     },
 
@@ -214,7 +289,7 @@ const App = {
     getActiveProfile: function () {
       const list = this.getProfilesList();
       const activeId = this.getActiveProfileId();
-      return list.find(p => p.id === activeId) || list[0] || this.DEFAULT_PRIMARY_PROFILE;
+      return list.find(p => p.id === activeId) || list[0] || this.CLEAN_PRIMARY_PROFILE;
     },
 
     getProfileData: function (profileId) {
@@ -233,7 +308,8 @@ const App = {
       }
 
       if (pid === 'prof_primary') {
-        let def = JSON.parse(JSON.stringify(this.DEFAULT_PRIMARY_DATA));
+        const isDemo = localStorage.getItem('meditrack_is_demo') === 'true';
+        let def = JSON.parse(JSON.stringify(isDemo ? this.DEFAULT_PRIMARY_DATA : this.CLEAN_PRIMARY_DATA));
         if (typeof FhirEngine !== 'undefined') FhirEngine.syncProfileToFhir(def);
         return def;
       }
@@ -664,8 +740,12 @@ const App = {
   init: function () {
     this.Store.init();
 
-    const savedLang = localStorage.getItem(this.Store.KEYS.LANG) || 'en';
+    const savedLang = localStorage.getItem('meditrack_lang') || localStorage.getItem(this.Store.KEYS.LANG) || 'en';
     this.state.currentLang = savedLang;
+    if (typeof I18N !== 'undefined') {
+      I18N.setLanguage(savedLang);
+    }
+    document.documentElement.setAttribute('lang', savedLang);
     this.updateLanguageUI();
 
     const initialAuth = this.Store.isAuthenticated() ? 3 : 1;
@@ -675,8 +755,8 @@ const App = {
     const data = this.Store.getProfileData(activePid);
     this.state.activeProfileId = activePid;
     this.state.homeChatMessages = data.chatHistory || [];
-    this.state.habitGoal = data.habitGoal || 'decrease-sugar';
-    this.state.waterIntakeMl = data.waterIntakeMl || 1750;
+    this.state.habitGoal = data.habitGoal || 'balanced';
+    this.state.waterIntakeMl = data.waterIntakeMl || 0;
 
     this.Router.init();
     this.updateSidebarUI();
@@ -1458,6 +1538,16 @@ const App = {
     const docs = data.documents || [];
     const meds = data.medications || [];
 
+    // Toggle empty state card vs dashboard
+    const emptyCard = document.getElementById('home-empty-state-card');
+    if (emptyCard) {
+      if (docs.length === 0) {
+        emptyCard.classList.remove('hidden');
+      } else {
+        emptyCard.classList.add('hidden');
+      }
+    }
+
     // 1. Records Analysed & Facilities count
     const recordsCountEl = document.getElementById('stat-records-count');
     const facilitiesEl = document.getElementById('stat-facilities-text');
@@ -1468,7 +1558,7 @@ const App = {
         const shortNames = facilities.map(f => f.split(' ')[0]);
         facilitiesEl.textContent = shortNames.slice(0, 2).join(' & ') + (facilities.length > 2 ? ' +' : '');
       } else {
-        facilitiesEl.textContent = 'ABDM Linked';
+        facilitiesEl.textContent = docs.length === 0 ? 'No records yet' : 'ABDM Linked';
       }
     }
 
@@ -1491,16 +1581,22 @@ const App = {
       });
     });
 
-    if (inRangeCount === 0 && outRangeCount === 0) {
-      inRangeCount = 8;
-      outRangeCount = 2;
-      abnormalMarkers = ['HbA1c', 'LDL-C'];
-    }
-
-    if (outOfRangeCountEl) outOfRangeCountEl.textContent = outRangeCount;
-    if (outOfRangeTextEl) {
-      const uniqueAbnormal = [...new Set(abnormalMarkers)];
-      outOfRangeTextEl.textContent = `● High: ${uniqueAbnormal.slice(0, 2).join(', ')}`;
+    if (docs.length === 0) {
+      inRangeCount = 0;
+      outRangeCount = 0;
+      if (outOfRangeCountEl) outOfRangeCountEl.textContent = '0';
+      if (outOfRangeTextEl) outOfRangeTextEl.textContent = '● Baseline clean';
+    } else {
+      if (inRangeCount === 0 && outRangeCount === 0) {
+        inRangeCount = 8;
+        outRangeCount = 2;
+        abnormalMarkers = ['HbA1c', 'LDL-C'];
+      }
+      if (outOfRangeCountEl) outOfRangeCountEl.textContent = outRangeCount;
+      if (outOfRangeTextEl) {
+        const uniqueAbnormal = [...new Set(abnormalMarkers)];
+        outOfRangeTextEl.textContent = uniqueAbnormal.length > 0 ? `● High: ${uniqueAbnormal.slice(0, 2).join(', ')}` : '● All in range';
+      }
     }
 
     // 3. Active Medications & Drug Interactions
@@ -1508,14 +1604,53 @@ const App = {
     const interactionsTextEl = document.getElementById('stat-interactions-text');
     if (medsCountEl) medsCountEl.textContent = meds.length;
     if (interactionsTextEl) {
-      interactionsTextEl.textContent = '● 0 Harmful Interactions';
+      interactionsTextEl.textContent = meds.length === 0 ? '● No active prescriptions' : '● 0 Harmful Interactions';
     }
 
     // 4. Upcoming Follow-ups
     const followupDateEl = document.getElementById('stat-followup-date');
     const followupDocEl = document.getElementById('stat-followup-doctor');
-    if (followupDateEl) followupDateEl.textContent = 'Nov 12, 2026';
-    if (followupDocEl) followupDocEl.textContent = 'Dr. S. Ranganathan, MD • Apollo';
+    if (followupDateEl) followupDateEl.textContent = docs.length === 0 ? 'No visits' : 'Nov 12, 2026';
+    if (followupDocEl) followupDocEl.textContent = docs.length === 0 ? 'Clean baseline' : 'Dr. S. Ranganathan, MD • Apollo';
+
+    // Update trend indicators footer
+    const trendHba1c = document.getElementById('trend-stat-hba1c');
+    const trendSugar = document.getElementById('trend-stat-sugar');
+    const trendCreatinine = document.getElementById('trend-stat-creatinine');
+    if (trendHba1c) trendHba1c.textContent = docs.length === 0 ? '— (No data)' : '7.6% (Trending Down ▼)';
+    if (trendSugar) trendSugar.textContent = docs.length === 0 ? '— (No data)' : '142 mg/dL (Dawn Spike)';
+    if (trendCreatinine) trendCreatinine.textContent = docs.length === 0 ? '— (No data)' : '1.02 mg/dL (Optimal)';
+
+    // Quick action cards
+    const quickBp = document.getElementById('quick-vitals-bp');
+    const quickSugar = document.getElementById('quick-vitals-sugar');
+    const quickNextMed = document.getElementById('quick-next-med-text');
+    const quickAbnormal = document.getElementById('quick-abnormal-text');
+    const vitalsLogs = data.vitalsLogs || [];
+    const latestVital = vitalsLogs.length > 0 ? vitalsLogs[0] : null;
+
+    if (quickBp) {
+      quickBp.textContent = (latestVital && latestVital.bp !== '—') ? latestVital.bp : (docs.length === 0 ? '—' : '120/80');
+    }
+    if (quickSugar) {
+      quickSugar.textContent = (latestVital && latestVital.sugar !== '—') ? `${latestVital.sugar} mg/dL` : (docs.length === 0 ? '— (No logs)' : '102 mg/dL');
+    }
+    if (quickNextMed) {
+      if (meds.length === 0) {
+        quickNextMed.textContent = 'No active medications';
+      } else {
+        const m = meds[0];
+        quickNextMed.textContent = `${m.name || 'Metformin'} ${m.dosage || ''} • ${m.timing || 'Daily'}`;
+      }
+    }
+    if (quickAbnormal) {
+      if (docs.length === 0) {
+        quickAbnormal.textContent = 'Clean baseline • No abnormal markers';
+      } else {
+        const uniqueAbnormal = [...new Set(abnormalMarkers)];
+        quickAbnormal.textContent = uniqueAbnormal.length > 0 ? `Abnormal: ${uniqueAbnormal.slice(0, 2).join(', ')}` : 'All biomarkers within normal range';
+      }
+    }
 
     // Charts
     this.renderLongitudinalTrendChart();
@@ -1552,6 +1687,11 @@ const App = {
     const gridColor = isDark ? 'rgba(51, 65, 85, 0.25)' : 'rgba(226, 232, 240, 0.8)';
     const textColor = isDark ? '#94a3b8' : '#64748b';
 
+    const pid = this.Store.getActiveProfileId();
+    const data = this.Store.getProfileData(pid);
+    const docs = data.documents || [];
+    const hasData = docs.length > 0;
+
     const labels = ['May 2026', 'Jun 2026', 'Jul 2026', 'Aug 2026', 'Sep 2026', 'Oct 2026'];
     const metric = this.state.trendBiomarker || 'all';
 
@@ -1563,7 +1703,28 @@ const App = {
       }
     };
 
-    if (metric === 'all') {
+    if (!hasData) {
+      datasets = [
+        {
+          label: 'No lab records uploaded yet (Click Evaluator Demo Mode to view)',
+          data: [0, 0, 0, 0, 0, 0],
+          borderColor: 'rgba(100, 116, 139, 0.4)',
+          backgroundColor: 'rgba(100, 116, 139, 0.05)',
+          borderWidth: 1.5,
+          tension: 0,
+          pointRadius: 2,
+          yAxisID: 'y'
+        }
+      ];
+      scales.y = {
+        type: 'linear',
+        position: 'left',
+        min: 0,
+        max: 10,
+        grid: { color: gridColor },
+        ticks: { color: textColor, font: { size: 10 } }
+      };
+    } else if (metric === 'all') {
       datasets = [
         {
           label: 'HbA1c (%)',
@@ -1749,7 +1910,7 @@ const App = {
     });
   },
 
-  renderResultsGauge: function (inRange = 8, outRange = 2) {
+  renderResultsGauge: function (inRange = 0, outRange = 0) {
     const canvas = document.getElementById('chart-results-gauge');
     if (!canvas || typeof Chart === 'undefined') return;
 
@@ -1759,26 +1920,30 @@ const App = {
     }
 
     const total = inRange + outRange;
-    const percent = total > 0 ? Math.round((inRange / total) * 100) : 80;
+    const percent = total > 0 ? Math.round((inRange / total) * 100) : 100;
 
     const percentText = document.getElementById('gauge-percent-text');
     const inRangeText = document.getElementById('gauge-in-range-count');
     const outRangeText = document.getElementById('gauge-out-range-count');
 
-    if (percentText) percentText.textContent = `${percent}%`;
+    if (percentText) percentText.textContent = total > 0 ? `${percent}%` : '—';
     if (inRangeText) inRangeText.textContent = `${inRange} Tests`;
     if (outRangeText) outRangeText.textContent = `${outRange} Tests`;
+
+    const chartData = total > 0 ? [inRange, outRange] : [1];
+    const chartBg = total > 0 ? ['#10b981', '#f59e0b'] : ['rgba(100, 116, 139, 0.25)'];
+    const chartLabels = total > 0 ? ['In-Range (Normal)', 'Out-of-Range (Actionable)'] : ['No records yet'];
 
     this.state.charts.resultsGauge = new Chart(canvas, {
       type: 'doughnut',
       data: {
-        labels: ['In-Range (Normal)', 'Out-of-Range (Actionable)'],
+        labels: chartLabels,
         datasets: [{
-          data: [inRange, outRange],
-          backgroundColor: ['#10b981', '#f59e0b'],
+          data: chartData,
+          backgroundColor: chartBg,
           borderColor: document.documentElement.classList.contains('dark') ? '#0d172a' : '#ffffff',
           borderWidth: 3,
-          hoverOffset: 4
+          hoverOffset: total > 0 ? 4 : 0
         }]
       },
       options: {
@@ -1788,6 +1953,7 @@ const App = {
         plugins: {
           legend: { display: false },
           tooltip: {
+            enabled: total > 0,
             callbacks: {
               label: (context) => ` ${context.label}: ${context.raw} tests (${Math.round((context.raw / total) * 100)}%)`
             }
@@ -1958,6 +2124,37 @@ const App = {
 
     const filtered = filter === 'all' ? records : records.filter(r => r.type === filter);
 
+    if (records.length === 0) {
+      const lang = this.state.currentLang || 'en';
+      const emptyTitle = typeof I18N !== 'undefined' ? I18N.t('emptyStateRecords', lang) : 'No records yet. Upload your first prescription or report to begin';
+      const emptyDesc = typeof I18N !== 'undefined' ? I18N.t('emptyStateRecordsDesc', lang) : `Upload a medical lab report or prescription slip to populate this timeline for ${data.profile.name}.`;
+      const btnUpload = typeof I18N !== 'undefined' ? I18N.t('btnUploadRecord', lang) : '+ Upload Diagnostic Document';
+      const btnDemo = typeof I18N !== 'undefined' ? I18N.t('btnEvaluatorDemo', lang) : 'Evaluator Demo Mode';
+      container.innerHTML = `
+        <div class="glass-panel p-8 rounded-3xl border border-teal-500/30 text-center space-y-4 shadow-xl">
+          <div class="w-14 h-14 rounded-2xl bg-teal-500/15 border border-teal-500/30 text-teal-300 mx-auto flex items-center justify-center">
+            <i data-lucide="folder-plus" class="w-7 h-7"></i>
+          </div>
+          <div class="space-y-1.5 max-w-md mx-auto">
+            <h3 class="text-base font-bold text-white" data-i18n="emptyStateRecords">${emptyTitle}</h3>
+            <p class="text-xs text-slate-400" data-i18n="emptyStateRecordsDesc">${emptyDesc}</p>
+          </div>
+          <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button onclick="document.getElementById('home-file-input').click()" class="capsule-send-btn px-4 py-2.5 rounded-xl text-white font-bold text-xs shadow-md transition cursor-pointer flex items-center gap-1.5">
+              <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+              <span data-i18n="btnUploadRecord">${btnUpload}</span>
+            </button>
+            <button onclick="App.loadEvaluatorDemoMode()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/40 font-bold text-xs shadow-md transition cursor-pointer flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-4 h-4 text-teal-400"></i>
+              <span data-i18n="btnEvaluatorDemo">${btnDemo}</span>
+            </button>
+          </div>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+      return;
+    }
+
     if (filtered.length === 0) {
       container.innerHTML = `
         <div class="glass-panel p-8 rounded-3xl border border-slate-700/60 text-center space-y-3">
@@ -1965,10 +2162,7 @@ const App = {
             <i data-lucide="folder-x" class="w-6 h-6"></i>
           </div>
           <h3 class="text-base font-bold text-white">No documents found for this filter</h3>
-          <p class="text-xs text-slate-400 max-w-sm mx-auto">Upload a medical lab report or prescription slip to populate this timeline for ${data.profile.name}.</p>
-          <button onclick="document.getElementById('home-file-input').click()" class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md transition cursor-pointer">
-            + Upload Document
-          </button>
+          <p class="text-xs text-slate-400 max-w-sm mx-auto">Select "All Documents" above to see existing files.</p>
         </div>
       `;
       if (window.lucide) lucide.createIcons();
@@ -2229,13 +2423,92 @@ const App = {
     this.showToast('All profiles & health vaults exported to JSON', 'success');
   },
 
+  loadEvaluatorDemoMode: function () {
+    localStorage.setItem('meditrack_is_demo', 'true');
+    const demoProfile = JSON.parse(JSON.stringify(this.Store.DEFAULT_PRIMARY_PROFILE));
+    const demoData = JSON.parse(JSON.stringify(this.Store.DEFAULT_PRIMARY_DATA));
+    localStorage.setItem(this.Store.KEYS.PROFILES_LIST, JSON.stringify([demoProfile]));
+    localStorage.setItem(this.Store.KEYS.DATA_PREFIX + 'prof_primary', JSON.stringify(demoData));
+    localStorage.setItem(this.Store.KEYS.ACTIVE_PROFILE_ID, 'prof_primary');
+
+    if (typeof db !== 'undefined') {
+      try {
+        db.saveUser({
+          id: 'PAT-914521',
+          abhaId: '91-4521-8842-1093',
+          fullName: 'Ravi Kumar',
+          age: 42,
+          gender: 'Male',
+          bloodGroup: 'B+ Positive',
+          isDemo: true
+        });
+        if (typeof PATIENT_DATA !== 'undefined' && PATIENT_DATA.presets) {
+          db.saveReport(PATIENT_DATA.presets.bloodPanel);
+          db.saveReport(PATIENT_DATA.presets.prescription);
+        }
+      } catch (e) {
+        console.warn('DB demo seeding error:', e);
+      }
+    }
+
+    this.state.activeProfileId = 'prof_primary';
+    this.updateSidebarUI();
+    this.updateAIStatusBadge();
+
+    // Re-render current view with the newly seeded demo data
+    if (this.state.authState === 'logged_in') {
+      if (this.state.activeView === 'home') this.renderDashboardAnalytics();
+      else if (this.state.activeView === 'records') this.renderRecordsPage();
+      else if (this.state.activeView === 'result') this.renderResultPage();
+      else if (this.state.activeView === 'monitoring') this.renderMonitoringPage();
+      else if (this.state.activeView === 'medications') this.renderMedicationsPage();
+      else if (this.state.activeView === 'safety-habits') this.renderSafetyHabits();
+    } else {
+      this.gotoState(3);
+      this.switchView('home');
+    }
+
+    const toastMsg = typeof I18N !== 'undefined' ? I18N.t('toastDemoLoaded', this.state.currentLang) : 'Evaluator Demo Mode loaded with full clinical dataset.';
+    this.showToast(toastMsg, 'success');
+  },
+
+  clearAllDataToCleanState: function () {
+    localStorage.setItem('meditrack_is_demo', 'false');
+    localStorage.removeItem('meditrack_user_uploaded');
+
+    const cleanProfile = JSON.parse(JSON.stringify(this.Store.CLEAN_PRIMARY_PROFILE));
+    const cleanData = JSON.parse(JSON.stringify(this.Store.CLEAN_PRIMARY_DATA));
+    localStorage.setItem(this.Store.KEYS.PROFILES_LIST, JSON.stringify([cleanProfile]));
+    localStorage.setItem(this.Store.KEYS.DATA_PREFIX + 'prof_primary', JSON.stringify(cleanData));
+    localStorage.setItem(this.Store.KEYS.ACTIVE_PROFILE_ID, 'prof_primary');
+
+    if (typeof db !== 'undefined' && typeof db.clearAllData === 'function') {
+      try {
+        db.clearAllData();
+      } catch (e) {}
+    }
+
+    this.state.activeProfileId = 'prof_primary';
+    this.state.recordsFilter = 'all';
+    this.updateSidebarUI();
+    this.updateAIStatusBadge();
+
+    if (this.state.authState === 'logged_in') {
+      if (this.state.activeView === 'home') this.renderDashboardAnalytics();
+      else if (this.state.activeView === 'records') this.renderRecordsPage();
+      else if (this.state.activeView === 'result') this.renderResultPage();
+      else if (this.state.activeView === 'monitoring') this.renderMonitoringPage();
+      else if (this.state.activeView === 'medications') this.renderMedicationsPage();
+      else if (this.state.activeView === 'safety-habits') this.renderSafetyHabits();
+    }
+
+    const toastMsg = typeof I18N !== 'undefined' ? I18N.t('toastDataCleared', this.state.currentLang) : 'Returned to clean empty state. No records yet.';
+    this.showToast(toastMsg, 'info');
+  },
+
   resetDemoData: function () {
-    if (confirm('Reset patient profile records back to initial hackathon demo presets?')) {
-      localStorage.removeItem(this.Store.KEYS.PROFILES_LIST);
-      localStorage.removeItem(this.Store.KEYS.ACTIVE_PROFILE_ID);
-      this.Store.init();
-      this.switchProfile('prof_primary');
-      this.showToast('Demo profiles restored to default state.', 'success');
+    if (confirm('Reset to clean empty state without patient records?')) {
+      this.clearAllDataToCleanState();
     }
   },
 
@@ -2247,6 +2520,37 @@ const App = {
     const data = this.Store.getProfileData(pid);
     const lang = this.state.currentLang || 'en';
     const localized = (typeof I18N !== 'undefined') ? I18N.getClinicalSummary(lang) : null;
+    const docs = data.documents || [];
+
+    // Clean empty state for Result page
+    if (!data.result && docs.length === 0) {
+      const bpEl = document.getElementById('result-input-bp');
+      const sugarEl = document.getElementById('result-input-sugar');
+      const symEl = document.getElementById('result-input-symptoms');
+      const timeEl = document.getElementById('result-inputs-timestamp');
+
+      if (bpEl) bpEl.innerHTML = `— <span class="text-xs text-slate-400 font-normal">mmHg</span>`;
+      if (sugarEl) sugarEl.innerHTML = `— <span class="text-xs text-slate-400 font-normal">mg/dL</span>`;
+      if (symEl) symEl.textContent = 'No input logged';
+      if (timeEl) timeEl.textContent = 'No records yet';
+
+      const probEl = document.getElementById('result-problem-text');
+      const solEl = document.getElementById('result-solution-text');
+      if (probEl) probEl.textContent = typeof I18N !== 'undefined' ? I18N.t('emptyStateResult', lang) : 'No clinical analysis available yet. Upload a diagnostic report or prescription to generate an instant AI synthesis.';
+      if (solEl) solEl.textContent = 'Once you upload a report or prescription, MediTrack AI will automatically generate personalized clinical action items.';
+
+      const medList = document.getElementById('result-medications-list');
+      if (medList) {
+        medList.innerHTML = `<div class="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-700/60 rounded-2xl">
+          <p class="font-medium text-slate-300">No active medication regimens recorded.</p>
+          <p class="mt-1 text-slate-400">Upload a prescription slip or click Evaluator Demo Mode to see full medication analysis.</p>
+        </div>`;
+      }
+
+      const habitsEl = document.getElementById('result-safety-habits-text');
+      if (habitsEl) habitsEl.textContent = 'Baseline preventative guidance: Maintain balanced daily hydration, whole-food nutrition, and routine wellness screenings.';
+      return;
+    }
 
     const res = data.result || {
       inputs: { bp: '120/80', sugar: '100', symptoms: 'Normal', timestamp: 'Today' },
@@ -2301,9 +2605,10 @@ const App = {
     const pid = this.Store.getActiveProfileId();
     const data = this.Store.getProfileData(pid);
     const vitals = data.vitalsLogs || [];
+    const hasVitals = vitals.length > 0;
 
-    const todayVital = vitals[0] || { bp: '120/80', sugar: '100', symptoms: 'Feeling good', date: 'Today' };
-    const prevVital = vitals[1] || { bp: '124/82', sugar: '108', symptoms: 'Mild headache', date: 'Yesterday' };
+    const todayVital = vitals[0] || (hasVitals ? { bp: '120/80', sugar: '100', symptoms: 'Feeling good', date: 'Today' } : { bp: '—', sugar: '—', symptoms: 'No readings logged yet', date: 'No recent reading' });
+    const prevVital = vitals[1] || (hasVitals ? { bp: '124/82', sugar: '108', symptoms: 'Mild headache', date: 'Yesterday' } : { bp: '—', sugar: '—', symptoms: 'No previous reading', date: 'No prior reading' });
 
     const dateToday = document.getElementById('mon-date-today');
     const bpToday = document.getElementById('mon-bp-today');
@@ -2311,8 +2616,8 @@ const App = {
     const symToday = document.getElementById('mon-sym-today');
 
     if (dateToday) dateToday.textContent = todayVital.date || 'Today (Latest)';
-    if (bpToday) bpToday.innerHTML = `${todayVital.bp} <span class="text-xs font-normal text-slate-400">mmHg</span>`;
-    if (sugarToday) sugarToday.innerHTML = `${todayVital.sugar} <span class="text-xs font-normal text-slate-400">mg/dL</span>`;
+    if (bpToday) bpToday.innerHTML = todayVital.bp !== '—' ? `${todayVital.bp} <span class="text-xs font-normal text-slate-400">mmHg</span>` : '—';
+    if (sugarToday) sugarToday.innerHTML = todayVital.sugar !== '—' ? `${todayVital.sugar} <span class="text-xs font-normal text-slate-400">mg/dL</span>` : '—';
     if (symToday) symToday.textContent = todayVital.symptoms || 'None';
 
     const datePrev = document.getElementById('mon-date-prev');
@@ -2321,19 +2626,20 @@ const App = {
     const symPrev = document.getElementById('mon-sym-prev');
 
     if (datePrev) datePrev.textContent = prevVital.date || 'Yesterday';
-    if (bpPrev) bpPrev.innerHTML = `${prevVital.bp} <span class="text-xs font-normal text-slate-400">mmHg</span>`;
-    if (sugarPrev) sugarPrev.innerHTML = `${prevVital.sugar} <span class="text-xs font-normal text-slate-400">mg/dL</span>`;
+    if (bpPrev) bpPrev.innerHTML = prevVital.bp !== '—' ? `${prevVital.bp} <span class="text-xs font-normal text-slate-400">mmHg</span>` : '—';
+    if (sugarPrev) sugarPrev.innerHTML = prevVital.sugar !== '—' ? `${prevVital.sugar} <span class="text-xs font-normal text-slate-400">mg/dL</span>` : '—';
     if (symPrev) symPrev.textContent = prevVital.symptoms || 'None';
 
     // Tooltip calculation explanation
     const stabPercent = document.getElementById('mon-stability-percent');
     const stabBar = document.getElementById('mon-stability-progress-bar');
+    const stabilityScore = data.profile.stabilityScore;
     if (stabPercent) {
-      stabPercent.textContent = `${data.profile.stabilityScore || 85}% Stability`;
+      stabPercent.textContent = (stabilityScore !== null && stabilityScore !== undefined) ? `${stabilityScore}% Stability` : 'Clean Baseline (0%)';
       stabPercent.setAttribute('title', 'Stability Calculation = 40% Glycemic Balance + 30% Blood Pressure Normalcy + 20% Symptom Absence + 10% Regimen Adherence');
     }
     if (stabBar) {
-      stabBar.style.width = `${data.profile.stabilityScore || 85}%`;
+      stabBar.style.width = (stabilityScore !== null && stabilityScore !== undefined) ? `${stabilityScore}%` : '0%';
     }
 
     this.renderTelemetryCharts();
@@ -2346,17 +2652,26 @@ const App = {
 
     this.destroyCharts();
 
+    const pid = this.Store.getActiveProfileId();
+    const data = this.Store.getProfileData(pid);
+    const vitals = data.vitalsLogs || [];
+    const hasData = vitals.length > 0;
+
     const isLight = document.documentElement.classList.contains('light');
     const gridColor = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
     const textColor = isLight ? '#475569' : '#94a3b8';
 
+    const bpLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Today'];
+    const systolicData = hasData ? [130, 126, 128, 125, 128, 124, 120] : [0, 0, 0, 0, 0, 0, 0];
+    const diastolicData = hasData ? [85, 82, 84, 80, 84, 82, 80] : [0, 0, 0, 0, 0, 0, 0];
+
     this.state.charts.bp = new Chart(bpCanvas.getContext('2d'), {
       type: 'line',
       data: {
-        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Today'],
+        labels: bpLabels,
         datasets: [
-          { label: 'Systolic BP', data: [130, 126, 128, 125, 128, 124, 120], borderColor: '#0d9488', backgroundColor: 'rgba(13,148,136,0.1)', tension: 0.35, fill: true },
-          { label: 'Diastolic BP', data: [85, 82, 84, 80, 84, 82, 80], borderColor: '#0284c7', backgroundColor: 'transparent', tension: 0.35 }
+          { label: hasData ? 'Systolic BP' : 'Systolic (No logs)', data: systolicData, borderColor: '#0d9488', backgroundColor: 'rgba(13,148,136,0.1)', tension: 0.35, fill: true },
+          { label: hasData ? 'Diastolic BP' : 'Diastolic (No logs)', data: diastolicData, borderColor: '#0284c7', backgroundColor: 'transparent', tension: 0.35 }
         ]
       },
       options: {
@@ -2365,17 +2680,18 @@ const App = {
         plugins: { legend: { labels: { color: textColor, boxWidth: 10 } } },
         scales: {
           x: { grid: { color: gridColor }, ticks: { color: textColor } },
-          y: { grid: { color: gridColor }, ticks: { color: textColor } }
+          y: { min: hasData ? 60 : 0, max: hasData ? 160 : 160, grid: { color: gridColor }, ticks: { color: textColor } }
         }
       }
     });
 
+    const cgmData = hasData ? [102, 142, 128, 115, 138, 118, 106] : [0, 0, 0, 0, 0, 0, 0];
     this.state.charts.cgm = new Chart(cgmCanvas.getContext('2d'), {
       type: 'line',
       data: {
         labels: ['6 AM', '9 AM', '12 PM', '3 PM', '6 PM', '9 PM', '11 PM'],
         datasets: [
-          { label: 'Fasting / Postprandial (mg/dL)', data: [102, 142, 128, 115, 138, 118, 106], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)', tension: 0.35, fill: true }
+          { label: hasData ? 'Fasting / Postprandial (mg/dL)' : 'Glucose (No readings)', data: cgmData, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)', tension: 0.35, fill: true }
         ]
       },
       options: {
@@ -2384,7 +2700,7 @@ const App = {
         plugins: { legend: { labels: { color: textColor, boxWidth: 10 } } },
         scales: {
           x: { grid: { color: gridColor }, ticks: { color: textColor } },
-          y: { grid: { color: gridColor }, ticks: { color: textColor } }
+          y: { min: hasData ? 70 : 0, max: hasData ? 200 : 200, grid: { color: gridColor }, ticks: { color: textColor } }
         }
       }
     });
@@ -2545,38 +2861,50 @@ const App = {
     const data = this.Store.getProfileData(pid);
     const meds = data.medications || [];
 
-    const schedule = [
+    const schedule = meds.length > 0 ? [
       { slot: 'Morning (Breakfast)', icon: 'sunrise', time: '8:00 AM', med: 'Telmisartan 40mg', timing: 'Post Breakfast', taken: true },
       { slot: 'Afternoon (Lunch)', icon: 'sun', time: '1:30 PM', med: 'Metformin HCl 500mg', timing: 'With Meal', taken: false },
       { slot: 'Evening (Snacks)', icon: 'sunset', time: '5:30 PM', med: 'Hydration & Routine', timing: 'Routine', taken: true },
       { slot: 'Night (Bedtime)', icon: 'moon', time: '9:30 PM', med: 'Atorvastatin 20mg', timing: 'Post Dinner', taken: false }
-    ];
+    ] : [];
 
     if (grid) {
-      grid.innerHTML = schedule.map(item => `
-        <div class="glass-panel p-4 rounded-3xl border border-slate-700/60 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-white flex items-center gap-1.5">
-              <i data-lucide="${item.icon}" class="w-3.5 h-3.5 text-amber-400"></i>
-              <span>${item.slot}</span>
-            </span>
-            <span class="text-[10px] text-slate-400 font-mono">${item.time}</span>
+      if (schedule.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full glass-panel p-6 rounded-3xl border border-dashed border-slate-700/60 text-center space-y-2">
+            <p class="text-xs text-slate-300 font-medium">No medication timing slots active.</p>
+            <p class="text-[11px] text-slate-400">Click '+ Add Prescription' or load Evaluator Demo Mode to populate medication schedules.</p>
           </div>
-          <div class="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1">
-            <div class="font-bold text-xs text-amber-300">${item.med}</div>
-            <div class="text-[10px] text-slate-400">${item.timing}</div>
+        `;
+      } else {
+        grid.innerHTML = schedule.map(item => `
+          <div class="glass-panel p-4 rounded-3xl border border-slate-700/60 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                <i data-lucide="${item.icon}" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span>${item.slot}</span>
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">${item.time}</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1">
+              <div class="font-bold text-xs text-amber-300">${item.med}</div>
+              <div class="text-[10px] text-slate-400">${item.timing}</div>
+            </div>
+            <button onclick="App.toggleDoseAdherence(this)" class="w-full py-1.5 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${item.taken ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'}">
+              <i data-lucide="${item.taken ? 'check' : 'circle'}" class="w-3 h-3"></i>
+              <span>${item.taken ? 'Taken' : 'Mark as Taken'}</span>
+            </button>
           </div>
-          <button onclick="App.toggleDoseAdherence(this)" class="w-full py-1.5 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ${item.taken ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'}">
-            <i data-lucide="${item.taken ? 'check' : 'circle'}" class="w-3 h-3"></i>
-            <span>${item.taken ? 'Taken' : 'Mark as Taken'}</span>
-          </button>
-        </div>
-      `).join('');
+        `).join('');
+      }
     }
 
     if (list) {
       if (meds.length === 0) {
-        list.innerHTML = `<div class="p-4 text-xs text-slate-400 text-center">No prescribed medications recorded for ${data.profile.name}. Use "+ Add Prescription" above to log a medication.</div>`;
+        list.innerHTML = `<div class="p-6 text-xs text-slate-400 text-center border border-dashed border-slate-700/60 rounded-2xl space-y-2">
+          <p class="font-medium text-slate-300">No prescribed medications recorded for ${data.profile.name}.</p>
+          <p class="text-[11px] text-slate-400">Use "+ Add Prescription" above or switch to Evaluator Demo Mode to see drug interaction warnings and active regimens.</p>
+        </div>`;
       } else {
         list.innerHTML = meds.map(m => `
           <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs relative">
@@ -3796,21 +4124,27 @@ const App = {
   setLanguage: function (lang) {
     if (!['en', 'te', 'hi'].includes(lang)) return;
     this.state.currentLang = lang;
+    localStorage.setItem('meditrack_lang', lang);
     localStorage.setItem(this.Store.KEYS.LANG, lang);
-    if (typeof I18N !== 'undefined') I18N.currentLang = lang;
+    if (typeof I18N !== 'undefined') {
+      I18N.setLanguage(lang);
+    }
     document.documentElement.setAttribute('lang', lang);
 
     this.updateLanguageUI();
 
     // Re-render current sub-view so all dynamic clinical content/summaries translate instantly
     if (this.state.authState === 'logged_in') {
-      if (this.state.activeView === 'result') this.renderResultPage();
+      if (this.state.activeView === 'home') this.renderDashboardAnalytics();
+      else if (this.state.activeView === 'result') this.renderResultPage();
       else if (this.state.activeView === 'records') this.renderRecordsPage();
       else if (this.state.activeView === 'monitoring') this.renderMonitoringPage();
       else if (this.state.activeView === 'medications') this.renderMedicationsPage();
       else if (this.state.activeView === 'safety-habits') this.renderSafetyHabits();
       else if (this.state.activeView === 'abha') this.renderAbhaPage();
       else if (this.state.activeView === 'settings') this.renderSettingsPage();
+    } else {
+      this.renderBeforeChatFeed();
     }
 
     const langSelect = document.getElementById('settings-lang-select');
@@ -3827,7 +4161,6 @@ const App = {
 
   updateLanguageUI: function () {
     const lang = this.state.currentLang;
-    const trans = (typeof I18N !== 'undefined') ? I18N.translations[lang] : (this.i18n[lang] || this.i18n.en);
 
     ['en', 'te', 'hi'].forEach(l => {
       const btn = document.getElementById(`lang-btn-${l}`);
@@ -3840,15 +4173,9 @@ const App = {
       }
     });
 
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      const key = el.dataset.i18n;
-      if (trans && trans[key]) el.textContent = trans[key];
-    });
-
-    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-      const key = el.dataset.i18nPlaceholder;
-      if (trans && trans[key]) el.setAttribute('placeholder', trans[key]);
-    });
+    if (typeof I18N !== 'undefined') {
+      I18N.applyTranslations(lang);
+    }
   },
 
   // =========================================================
@@ -3859,12 +4186,17 @@ const App = {
     const textEl = document.getElementById('header-ai-status-text');
     if (!badge) return;
 
+    const isDemo = localStorage.getItem('meditrack_is_demo') === 'true';
+
     if (typeof GeminiEngine !== 'undefined' && GeminiEngine.isLive()) {
       badge.className = 'hidden xl:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
       if (textEl) textEl.textContent = `● Gemini Live Engine Active (${GeminiEngine.getModel()})`;
+    } else if (isDemo) {
+      badge.className = 'hidden xl:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-teal-500/15 text-teal-300 border border-teal-500/30';
+      if (textEl) textEl.textContent = '● Evaluator Demo Mode';
     } else {
       badge.className = 'hidden xl:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700';
-      if (textEl) textEl.textContent = '● Evaluator Demo Mode';
+      if (textEl) textEl.textContent = '● Clean Session (No records)';
     }
   },
 

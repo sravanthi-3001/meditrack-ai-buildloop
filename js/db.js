@@ -600,8 +600,25 @@ const db = {
     const valid = mode === "OFF" ? "OFF" : "ON";
     localStorage.setItem(this.KEYS.MONITORING_MODE, valid);
     return valid;
+  },
+
+  // ==========================================
+  // 8. DATA RESET / CLEAN STATE
+  // ==========================================
+  clearAllData: function() {
+    this._set(this.KEYS.USERS, []);
+    this._set(this.KEYS.REPORTS, []);
+    this._set(this.KEYS.OBSERVATIONS, []);
+    this._set(this.KEYS.MEDICATIONS, []);
+    this._set(this.KEYS.VITALS, []);
+    this.clearActiveUser();
   }
 };
+
+// Expose on window
+if (typeof window !== 'undefined') {
+  window.db = db;
+}
 
 // Auto-initialize on load
 db.init();

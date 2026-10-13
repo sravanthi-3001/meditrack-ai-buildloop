@@ -17,8 +17,16 @@ const I18N = {
       searchPlaceholder: "Search records, test names, biomarkers, or medications (Ctrl+K)...",
       demoBadgeLive: "Gemini Live Vision Active",
       demoBadgeFallback: "Evaluator Demo Mode",
+      btnEvaluatorDemo: "Evaluator Demo Mode",
+      btnClearData: "Reset / Clear Data",
+      guidedDemo: "Guided Demo",
       guestHeroTitle: "hello welcome to medi track.",
       guestHeroSubtitle: "Your personal AI copilot for medical reports, symptom triage, and drug guidance.",
+      guestHeroDesc: "Ask any clinical doubt, dictate daily vitals, or scan prescription slips and lab tests for an instant clinical synthesis.",
+      tryDemoScenario: "Try a Demo Scenario",
+      loadSampleLabReport: "Load sample lab report",
+      loadSamplePrescription: "Load sample prescription",
+      checkEmergencyRedFlags: "Check chest-pain red flags",
       askPlaceholder: "Ask: . . . (describe symptoms or upload report)",
       uploadTooltip: "Upload lab report image or PDF",
       micTooltip: "Voice input via microphone",
@@ -28,6 +36,45 @@ const I18N = {
       addPerson: "+ Add Person",
       activeProfile: "Active Profile",
       primaryUser: "Primary User",
+      oneClickDemoFill: "⚡ 1-Click Demo Fill",
+
+      // Home Workspace
+      homeHeroTitle: "hello! I'm meditrack AI - welcome",
+      homeHeroSubtitle: "Your personal health copilot connected directly to your encrypted ABHA Health Vault.",
+      homeInputPlaceholder: "Ask AI or describe vitals (e.g., 'BP is 120/80 and sugar 110')...",
+      statRecordsAnalysed: "Records Analysed",
+      statValuesOutOfRange: "Values Out of Range",
+      statActiveMedications: "Active Medications",
+      statUpcomingFollowups: "Upcoming Follow-ups",
+      longitudinalTrendTitle: "Longitudinal Lab Trend Analytics",
+      longitudinalTrendSubtitle: "6-Month biomarker progression with shaded reference boundaries",
+      biomarkerGaugeTitle: "Biomarker Range Gauge",
+      emptyStateTitle: "No records yet. Upload your first prescription or report to begin",
+      emptyStateSubtitle: "Upload clinical lab reports, scan prescription slips, or test Evaluator Demo Mode to explore rich telemetry and AI triage.",
+      emptyStateRecords: "No records yet. Upload your first prescription or report to begin",
+      emptyStateRecordsDesc: "Upload a medical lab report or prescription slip to populate this timeline.",
+      emptyStateVitals: "No daily vitals logged yet. Use '+ Log Today's Reading' or click 'Evaluator Demo Mode'.",
+      emptyStateMeds: "No active medications recorded yet. Upload a prescription or load 'Evaluator Demo Mode'.",
+      emptyStateResult: "No clinical analysis available yet. Upload a diagnostic report or prescription to generate an instant AI synthesis.",
+      printReport: "Print Report",
+      backToHome: "Back to Home",
+      inputsByUser: "Inputs given by user",
+      clinicalProblem: "Clinical Problem",
+      clinicalSolution: "Recommended Clinical Actions",
+      quickUploadTitle: "Upload Report",
+      quickVitalsTitle: "Today's Vitals",
+      quickMedsTitle: "Next Medicine Dose",
+      quickAbnormalTitle: "Latest Abnormal Finding",
+      vitalTelemetryTag: "Longitudinal Telemetry",
+      vitalBloodPressure: "Blood Pressure (mmHg)",
+      vitalFastingSugar: "Fasting Sugar (mg/dL)",
+      vitalOtherSymptoms: "Other Symptoms (Yes/No)",
+      vitalComparisonTitle: "Day-to-Day Vital Signs Comparison",
+      vitalPrevDay: "Previous Day",
+      vitalToday: "Today",
+      vitalHealthBox: "Progress of Health Box",
+      toastDemoLoaded: "Evaluator Demo Mode loaded with full clinical dataset.",
+      toastDataCleared: "Returned to clean empty state. No records yet.",
 
       // Navigation Items
       navHome: "Home Workspace",
@@ -168,8 +215,16 @@ const I18N = {
       searchPlaceholder: "రికార్డులు, పరీక్షల పేర్లు, బయోమార్కర్లు లేదా మందులను వెతకండి (Ctrl+K)...",
       demoBadgeLive: "జెమిని లైవ్ విజన్ యాక్టివ్",
       demoBadgeFallback: "ఎవాల్యుయేటర్ డెమో మోడ్",
+      btnEvaluatorDemo: "ఎవాల్యుయేటర్ డెమో మోడ్",
+      btnClearData: "రీసెట్ / డేటా తొలగించు",
+      guidedDemo: "గైడెడ్ డెమో",
       guestHeroTitle: "మెడి ట్రాక్‌కి స్వాగతం.",
       guestHeroSubtitle: "వైద్య నివేదికలు, లక్షణాల తనిఖీ మరియు ఔషధ మార్గదర్శకత్వం కోసం మీ వ్యక్తిగత AI కోపైలట్.",
+      guestHeroDesc: "ఏదైనా వైద్య సందేహాన్ని అడగండి, రోజువారీ రీడింగ్స్ చెప్పండి లేదా ప్రిస్క్రిప్షన్లు మరియు ల్యాబ్ పరీక్షలను స్కాన్ చేయండి.",
+      tryDemoScenario: "డెమో దృష్టాంతాన్ని ప్రయత్నించండి",
+      loadSampleLabReport: "నమూనా ల్యాబ్ నివేదికను లోడ్ చేయండి",
+      loadSamplePrescription: "నమూనా ప్రిస్క్రిప్షన్‌ను లోడ్ చేయండి",
+      checkEmergencyRedFlags: "ఛాతీ నొప్పి హెచ్చరికలను తనిఖీ చేయండి",
       askPlaceholder: "అడగండి: . . . (లక్షణాలను వివరించండి లేదా నివేదికను అప్‌లోడ్ చేయండి)",
       uploadTooltip: "ల్యాబ్ నివేదిక చిత్రం లేదా PDF అప్‌లోడ్ చేయండి",
       micTooltip: "మైక్రోఫోన్ ద్వారా వాయిస్ ఇన్‌పుట్",
@@ -179,6 +234,45 @@ const I18N = {
       addPerson: "+ వ్యక్తిని జోడించండి",
       activeProfile: "ప్రస్తుత ప్రొఫైల్",
       primaryUser: "ప్రధాన వినియోగదారు",
+      oneClickDemoFill: "⚡ 1-క్లిక్ డెమో పూరించండి",
+
+      // Home Workspace
+      homeHeroTitle: "నమస్కారం! నేను మెడిట్రాక్ AI - స్వాగతం",
+      homeHeroSubtitle: "మీ ఎన్‌క్రిప్టెడ్ ABHA హెల్త్ వాల్ట్‌తో నేరుగా అనుసంధానించబడిన మీ వ్యక్తిగత ఆరోగ్య కోపైలట్.",
+      homeInputPlaceholder: "AIని అడగండి లేదా రీడింగ్స్ చెప్పండి (ఉదా. 'BP 120/80 మరియు షుగర్ 110')...",
+      statRecordsAnalysed: "విశ్లేషించిన రికార్డులు",
+      statValuesOutOfRange: "పరిమితి దాటిన విలువలు",
+      statActiveMedications: "ప్రస్తుత మందులు",
+      statUpcomingFollowups: "రాబోయే అపాయింట్‌మెంట్‌లు",
+      longitudinalTrendTitle: "దీర్ఘకాలిక ల్యాబ్ ట్రెండ్ విశ్లేషణ",
+      longitudinalTrendSubtitle: "సూచన పరిధులతో 6 నెలల బయోమార్కర్ పురోగతి",
+      biomarkerGaugeTitle: "బయోమార్కర్ పరిధి గేజ్",
+      emptyStateTitle: "ఇంకా ఎటువంటి రికార్డులు లేవు. ప్రారంభించడానికి మీ మొదటి ప్రిస్క్రిప్షన్ లేదా నివేదికను అప్‌లోడ్ చేయండి",
+      emptyStateSubtitle: "క్లినికల్ ల్యాబ్ నివేదికలను అప్‌లోడ్ చేయండి లేదా రిచ్ టెలిమెట్రీని అన్వేషించడానికి ఎవాల్యుయేటర్ డెమో మోడ్‌ను పరీక్షించండి.",
+      emptyStateRecords: "ఇంకా ఎటువంటి రికార్డులు లేవు. ప్రారంభించడానికి మీ మొదటి ప్రిస్క్రిప్షన్ లేదా నివేదికను అప్‌లోడ్ చేయండి",
+      emptyStateRecordsDesc: "ఈ కాలక్రమాన్ని ప్రారంభించడానికి వైద్య ల్యాబ్ నివేదిక లేదా ప్రిస్క్రిప్షన్ స్లిప్‌ను అప్‌లోడ్ చేయండి.",
+      emptyStateVitals: "ఇంకా రోజువారీ రీడింగ్స్ నమోదు చేయలేదు. '+ నేటి రీడింగ్‌ను నమోదు చేయండి' లేదా 'ఎవాల్యుయేటర్ డెమో మోడ్' పై క్లిక్ చేయండి.",
+      emptyStateMeds: "ఇంకా క్రియాశీల మందులు లేవు. ప్రిస్క్రిప్షన్‌ను అప్‌లోడ్ చేయండి లేదా 'ఎవాల్యుయేటర్ డెమో మోడ్' ఉపయోగించండి.",
+      emptyStateResult: "ఇంకా క్లినికల్ విశ్లేషణ అందుబాటులో లేదు. తక్షణ AI విశ్లేషణ పొందడానికి నివేదికను అప్‌లోడ్ చేయండి.",
+      printReport: "నివేదికను ప్రింట్ చేయండి",
+      backToHome: "హోమ్‌కి తిరిగి వెళ్లండి",
+      inputsByUser: "వినియోగదారు నమోదు చేసిన వివరాలు",
+      clinicalProblem: "క్లినికల్ సమస్య",
+      clinicalSolution: "సిఫార్సు చేయబడిన చర్యలు",
+      quickUploadTitle: "నివేదికను అప్‌లోడ్ చేయండి",
+      quickVitalsTitle: "నేటి కీలక సంకేతాలు",
+      quickMedsTitle: "తదుపరి మందుల సమయం",
+      quickAbnormalTitle: "తాజా అసహజ గుర్తింపు",
+      vitalTelemetryTag: "దీర్ఘకాలిక టెలిమెట్రీ",
+      vitalBloodPressure: "రక్తపోటు (mmHg)",
+      vitalFastingSugar: "రక్తంలో చక్కెర (mg/dL)",
+      vitalOtherSymptoms: "ఇతర లక్షణాలు (అవును/కాదు)",
+      vitalComparisonTitle: "రోజువారీ కీలక సంకేతాల పోలిక",
+      vitalPrevDay: "నిన్నటి రోజు",
+      vitalToday: "ఈ రోజు",
+      vitalHealthBox: "ఆరోగ్య పురోగతి బాక్స్",
+      toastDemoLoaded: "ఎవాల్యుయేటర్ డెమో మోడ్ విజయవంతంగా లోడ్ చేయబడింది.",
+      toastDataCleared: "ఖాళీ స్థితికి పునరుద్ధరించబడింది. ఇంకా రికార్డులు లేవు.",
 
       // Navigation Items
       navHome: "హోమ్ వర్క్‌స్పేస్",
@@ -319,8 +413,16 @@ const I18N = {
       searchPlaceholder: "रिकॉर्ड, परीक्षण के नाम, बायोमार्कर या दवाएं खोजें (Ctrl+K)...",
       demoBadgeLive: "जेमिनी लाइव विजन सक्रिय",
       demoBadgeFallback: "मूल्यांकनकर्ता डेमो मोड",
-      guestHeroTitle: "मेडी ट्रैक में आपका स्वागत है।",
+      btnEvaluatorDemo: "इवैल्यूएटर डेमो मोड",
+      btnClearData: "रीसेट / डेटा मिटाएं",
+      guidedDemo: "गाइडेड डेमो",
+      guestHeroTitle: "मेडीट्रैक में आपका स्वागत है।",
       guestHeroSubtitle: "चिकित्सा रिपोर्ट, लक्षण जांच और दवा मार्गदर्शन के लिए आपका व्यक्तिगत AI कोपायलट।",
+      guestHeroDesc: "कोई भी चिकित्सीय संदेह पूछें, दैनिक वाइटल्स बताएं, या त्वरित क्लिनिकल विश्लेषण के लिए पर्ची और लैब टेस्ट स्कैन करें।",
+      tryDemoScenario: "डेमो परिदृश्य आज़माएं",
+      loadSampleLabReport: "नमूना लैब रिपोर्ट लोड करें",
+      loadSamplePrescription: "नमूना प्रिस्क्रिप्शन लोड करें",
+      checkEmergencyRedFlags: "सीने के दर्द की चेतावनी जांचें",
       askPlaceholder: "पूछें: . . . (लक्षणों का वर्णन करें या रिपोर्ट अपलोड करें)",
       uploadTooltip: "लैब रिपोर्ट छवि या पीडीएफ अपलोड करें",
       micTooltip: "माइक्रोफ़ोन के माध्यम से वॉयस इनपुट",
@@ -330,6 +432,45 @@ const I18N = {
       addPerson: "+ व्यक्ति जोड़ें",
       activeProfile: "सक्रिय प्रोफ़ाइल",
       primaryUser: "मुख्य उपयोगकर्ता",
+      oneClickDemoFill: "⚡ 1-क्लिक डेमो भरें",
+
+      // Home Workspace
+      homeHeroTitle: "नमस्ते! मैं मेडीट्रैक AI हूँ - स्वागत है",
+      homeHeroSubtitle: "आपके एन्क्रिप्टेड ABHA हेल्थ वॉल्ट से सीधे जुड़ा आपका व्यक्तिगत स्वास्थ्य कोपायलट।",
+      homeInputPlaceholder: "AI से पूछें या वाइटल्स बताएं (उदा. 'BP 120/80 और शुगर 110')...",
+      statRecordsAnalysed: "विश्लेषित रिकॉर्ड्स",
+      statValuesOutOfRange: "सीमा से बाहर मान",
+      statActiveMedications: "सक्रिय दवाएं",
+      statUpcomingFollowups: "आगामी अपॉइंटमेंट्स",
+      longitudinalTrendTitle: "दीर्घकालिक लैब ट्रेंड विश्लेषण",
+      longitudinalTrendSubtitle: "संदर्भ सीमाओं के साथ 6-महीने की बायोमार्कर प्रगति",
+      biomarkerGaugeTitle: "बायोमार्कर रेंज गेज",
+      emptyStateTitle: "अभी तक कोई रिकॉर्ड नहीं है। शुरू करने के लिए अपना पहला प्रिस्क्रिप्शन या रिपोर्ट अपलोड करें",
+      emptyStateSubtitle: "क्लिनिकल लैब रिपोर्ट अपलोड करें, प्रिस्क्रिप्शन स्कैन करें, या टेलीमेट्री देखने के लिए इवैल्यूएटर डेमो मोड आज़माएं।",
+      emptyStateRecords: "अभी तक कोई रिकॉर्ड नहीं है। शुरू करने के लिए अपना पहला प्रिस्क्रिप्शन या रिपोर्ट अपलोड करें",
+      emptyStateRecordsDesc: "इस टाइमलाइन को शुरू करने के लिए मेडिकल लैब रिपोर्ट या प्रिस्क्रिप्शन पर्ची अपलोड करें।",
+      emptyStateVitals: "अभी तक कोई दैनिक वाइटल्स दर्ज नहीं किए गए हैं। '+ आज की रीडिंग जोड़ें' या 'इवैल्यूएटर डेमो मोड' पर क्लिक करें।",
+      emptyStateMeds: "अभी तक कोई सक्रिय दवाएं दर्ज नहीं हैं। प्रिस्क्रिप्शन अपलोड करें या 'इवैल्यूएटर डेमो मोड' लोड करें।",
+      emptyStateResult: "अभी तक कोई क्लिनिकल विश्लेषण उपलब्ध नहीं है। त्वरित AI विश्लेषण के लिए रिपोर्ट या पर्ची अपलोड करें।",
+      printReport: "रिपोर्ट प्रिंट करें",
+      backToHome: "होम पर वापस जाएं",
+      inputsByUser: "उपयोगकर्ता द्वारा दिए गए इनपुट",
+      clinicalProblem: "क्लिनिकल समस्या",
+      clinicalSolution: "अनुशंसित क्लिनिकल कार्रवाइयां",
+      quickUploadTitle: "रिपोर्ट अपलोड करें",
+      quickVitalsTitle: "आज के वाइटल्स",
+      quickMedsTitle: "अगली दवा का समय",
+      quickAbnormalTitle: "नवीनतम असामान्य परिणाम",
+      vitalTelemetryTag: "दीर्घकालिक टेलीमेट्री",
+      vitalBloodPressure: "रक्तचाप (mmHg)",
+      vitalFastingSugar: "ब्लड शुगर (mg/dL)",
+      vitalOtherSymptoms: "अन्य लक्षण (हाँ/नहीं)",
+      vitalComparisonTitle: "दिन-प्रतिदिन वाइटल्स की तुलना",
+      vitalPrevDay: "पिछला दिन",
+      vitalToday: "आज",
+      vitalHealthBox: "स्वास्थ्य प्रगति बॉक्स",
+      toastDemoLoaded: "इवैल्यूएटर डेमो मोड पूर्ण क्लिनिकल डेटा के साथ लोड हुआ।",
+      toastDataCleared: "स्वच्छ खाली स्थिति में वापस आ गया। अभी कोई रिकॉर्ड नहीं है।",
 
       // Navigation Items
       navHome: "होम कार्यक्षेत्र",
@@ -500,6 +641,8 @@ const I18N = {
     }
   },
 
+  STORAGE_KEY: 'meditrack_lang',
+
   /**
    * Helper: translate key
    */
@@ -515,10 +658,100 @@ const I18N = {
   getClinicalSummary: function(lang) {
     const l = lang || this.currentLang || 'en';
     return this.clinicalSummaries[l] || this.clinicalSummaries.en;
+  },
+
+  /**
+   * Seamlessly set language, persist in localStorage (meditrack_lang), set html lang, and apply to DOM
+   */
+  setLanguage: function(lang) {
+    if (!['en', 'te', 'hi'].includes(lang)) return;
+    this.currentLang = lang;
+    try {
+      localStorage.setItem(this.STORAGE_KEY, lang);
+    } catch (e) {
+      console.warn("Could not save language to localStorage:", e);
+    }
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('lang', lang);
+      this.applyTranslations(lang);
+    }
+  },
+
+  /**
+   * Dynamically translate all DOM elements with data-i18n, data-i18n-placeholder, data-i18n-title
+   */
+  applyTranslations: function(lang) {
+    if (typeof document === 'undefined') return;
+    const l = lang || this.currentLang || 'en';
+    const trans = this.translations[l] || this.translations.en;
+    if (!trans) return;
+
+    // 1. Text elements
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.dataset.i18n;
+      if (trans && trans[key]) {
+        // If element contains child icon elements (like <i data-lucide>), update child span or text node safely
+        const icon = el.querySelector('[data-lucide], svg');
+        if (icon) {
+          const textSpan = el.querySelector('span');
+          if (textSpan) {
+            textSpan.textContent = trans[key];
+          } else {
+            let foundText = false;
+            el.childNodes.forEach(node => {
+              if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                node.textContent = ' ' + trans[key];
+                foundText = true;
+              }
+            });
+            if (!foundText) el.appendChild(document.createTextNode(' ' + trans[key]));
+          }
+        } else {
+          el.textContent = trans[key];
+        }
+      }
+    });
+
+    // 2. Input placeholders
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      const key = el.dataset.i18nPlaceholder;
+      if (trans && trans[key]) {
+        el.setAttribute('placeholder', trans[key]);
+      }
+    });
+
+    // 3. Titles / Tooltips
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      const key = el.dataset.i18nTitle;
+      if (trans && trans[key]) {
+        el.setAttribute('title', trans[key]);
+      }
+    });
+  },
+
+  /**
+   * Auto-initialize localization from localStorage
+   */
+  init: function() {
+    let saved = 'en';
+    try {
+      saved = localStorage.getItem(this.STORAGE_KEY) || 'en';
+    } catch (e) {}
+    if (!['en', 'te', 'hi'].includes(saved)) saved = 'en';
+    this.currentLang = saved;
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('lang', saved);
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => this.applyTranslations(saved));
+      } else {
+        this.applyTranslations(saved);
+      }
+    }
   }
 };
 
 // Expose on window
 if (typeof window !== 'undefined') {
   window.I18N = I18N;
+  I18N.init();
 }

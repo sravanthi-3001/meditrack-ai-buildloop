@@ -603,3 +603,39 @@ const PATIENT_DATA = {
     }
   }
 };
+
+// Clean default state for real users (strictly no auto-seeded dummy data)
+const EMPTY_PATIENT_STATE = {
+  profile: {
+    id: "prof_primary",
+    name: "Primary User",
+    age: 35,
+    gender: "Other",
+    bloodGroup: "O+ Positive",
+    dob: "",
+    phone: "",
+    email: "",
+    city: "Hyderabad, Telangana",
+    abhaId: "91-0000-0000-0000",
+    abhaAddress: "user@abdm",
+    emergencyContact: "",
+    allergies: [],
+    primaryPhysician: "",
+    insuranceProvider: "",
+    healthScore: null,
+    lastCheckup: null,
+    nextAppointment: null,
+    activeConditions: []
+  },
+  documents: [],
+  vitalsLogs: [],
+  medications: [],
+  reminders: [],
+  chatHistory: [],
+  result: null
+};
+
+if (typeof window !== 'undefined') {
+  window.PATIENT_DATA = PATIENT_DATA;
+  window.EMPTY_PATIENT_STATE = EMPTY_PATIENT_STATE;
+}
